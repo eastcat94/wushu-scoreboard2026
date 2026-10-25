@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 完美对齐版</title>
+<title>实时成绩看板 - RESULTS右移适配版</title>
 <style>
   :root{
     --bg:#071226;
@@ -237,7 +237,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (联动 J3:S12 范围) -->
+      <!-- 左栏：QUEUE (联动 J3:S12) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -248,7 +248,7 @@
         </div>
       </div>
 
-      <!-- 中间主看板 (联动 B2:E10 范围) -->
+      <!-- 中间主看板 (联动 B2:E10) -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
@@ -264,7 +264,7 @@
           </div>
           <div class="label-card">
             <div class="label" id="labelB">B组得分</div>
-            <div class="value" id="valB">—</div>
+            <div class="value" id="valB">—`</div>
           </div>
           <div class="label-card">
             <div class="label" id="labelD">纪律扣分</div>
@@ -286,7 +286,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS (精准联动 J17:R30 完赛成绩区) -->
+      <!-- 右栏：RESULTS (精准联动右侧完赛成绩表：W/X/AB列) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -368,7 +368,7 @@ function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 左侧 QUEUE 联动：扫描 J3:S12 区域 (对应 rows index 2 到 11)
+  // 1. 左侧 QUEUE 联动：扫描 J3:S12 范围 (对应 rows index 2 到 11)
   for (let r = 2; r <= Math.min(11, rows.length - 1); r++) {
     if (!rows[r]) continue;
     const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
@@ -432,13 +432,13 @@ function processQueueAndRender(rows) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 2. 右侧 RESULTS：严格联动 J17:R30 完赛成绩区（对应表格第 17 行开始，即 index 16 起）
+  // 2. 右侧 RESULTS：精准联动右侧完赛成绩表（根据最新截图：W列=英文姓名 index 22, X列=中文姓名 index 23, AB列=最终得分 index 27）
   const completedArr = [];
-  for (let r = 16; r <= Math.min(30, rows.length - 1); r++) {
+  for (let r = 14; r < rows.length; r++) {
     if (!rows[r]) continue;
-    const nameEng  = safeCell(rows, r, 12); // M列 (英文姓名)
-    const nameCht  = safeCell(rows, r, 13); // N列 (中文姓名)
-    const rawScore = safeCell(rows, r, 16); // Q列 (最终得分)
+    const nameEng  = safeCell(rows, r, 22); // W列 (英文姓名)
+    const nameCht  = safeCell(rows, r, 23); // X列 (中文姓名)
+    const rawScore = safeCell(rows, r, 27); // AB列 (最终得分)
 
     if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
     if (String(nameEng).includes('英文姓名') || String(nameEng).includes('NAME') || String(nameEng).includes('同项目完赛成绩') || String(nameEng).includes('名次')) continue;

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 拡張三栏版</title>
+<title>实时成绩看板 - 扩展三栏版</title>
 <style>
   :root{
     --bg:#071226;
@@ -12,18 +12,14 @@
     --accent:#f4c94e;
     --muted:#97a0b3;
     --font-sans: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-
-    /* 拓宽为三栏设计宽高（用于 autoScale），中间主栏保持原有尺寸比例 */
     --design-width: 1920px;
     --design-height: 960px;
   }
 
   html,body{height:100%;margin:0;font-family:var(--font-sans);background:var(--bg);color:#fff;overflow:hidden}
-  /* 垂直+水平居中 */
   body{display:flex;align-items:center;justify-content:center; height:100vh;}
-  #scaleWrap { transform-origin: center center; } /* auto scale 容器 */
+  #scaleWrap { transform-origin: center center; }
 
-  /* 三栏主容器：左栏(360px) + 中间原框架(1060px) + 右栏(380px) */
   .board-layout {
     width: var(--design-width);
     height: var(--design-height);
@@ -35,9 +31,7 @@
     align-items: center;
   }
 
-  /* ================= 中间主看板（完全保留原有视觉结构与字号） ================= */
   .wrap{width:100%; box-sizing:border-box; padding:10px 22px; margin:0;}
-
   .project-eng{font-size:40px;font-weight:800;text-align:center;margin:8px 0}
   .project-chn{font-size:40px;text-align:center;margin:6px 0;color:var(--muted)}
   .name-eng{font-size:40px;font-weight:800;text-align:center;margin:6px 0}
@@ -53,7 +47,6 @@
   .final-label{display:inline-block;background:var(--accent);color:#000;padding:10px 18px;border-radius:8px;font-weight:800;font-size:35px}
   .final-score{font-size:250px;font-weight:900;color:var(--accent);margin:-50px 0 14px 0;text-align:center}
 
-  /* ================= 左右侧边栏样式 ================= */
   .side-panel {
     background: rgba(13, 27, 42, 0.55);
     border: 1px solid var(--card-border);
@@ -73,17 +66,8 @@
     align-items: baseline;
     justify-content: space-between;
   }
-  .side-title-main {
-    font-size: 24px;
-    font-weight: 800;
-    color: var(--accent);
-    letter-spacing: 0.5px;
-  }
-  .side-title-sub {
-    font-size: 15px;
-    color: var(--muted);
-    font-weight: 600;
-  }
+  .side-title-main { font-size: 24px; font-weight: 800; color: var(--accent); letter-spacing: 0.5px; }
+  .side-title-sub { font-size: 15px; color: var(--muted); font-weight: 600; }
 
   .side-list {
     flex: 1;
@@ -105,10 +89,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    transition: transform 0.2s ease, border-color 0.2s ease;
   }
 
-  /* 左侧第一名等待选手高亮 (Be Ready) */
   .athlete-item.be-ready-highlight {
     border-color: var(--accent);
     background: linear-gradient(90deg, rgba(244, 201, 78, 0.14) 0%, rgba(13, 27, 42, 0.95) 100%);
@@ -116,114 +98,51 @@
   }
 
   .badge-ready {
-    background: var(--accent);
-    color: #000;
-    font-size: 13px;
-    font-weight: 900;
-    padding: 4px 8px;
-    border-radius: 6px;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    background: var(--accent); color: #000; font-size: 13px; font-weight: 900;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
   }
   .badge-queue {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 6px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.08); color: var(--muted); font-size: 13px; font-weight: 700;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; flex-shrink: 0;
   }
 
-  /* 姓名容器（中英文） */
-  .athlete-names {
-    flex: 1;
-    min-width: 0;
-  }
+  .athlete-names { flex: 1; min-width: 0; }
   .athlete-names .n-eng {
-    font-size: 20px;
-    font-weight: 800;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.25;
+    font-size: 20px; font-weight: 800; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25;
   }
   .athlete-names .n-chn {
-    font-size: 18px;
-    color: var(--muted);
-    margin-top: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 18px; color: var(--muted); margin-top: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* 右侧排名徽章与成绩 */
   .rank-badge {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.08);
-    color: var(--muted);
-    font-weight: 900;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.08); color: var(--muted);
+    font-weight: 900; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
   .rank-1 { background: #f4c94e; color: #000; box-shadow: 0 0 10px rgba(244,201,78,0.4); }
   .rank-2 { background: #d8dee9; color: #000; }
   .rank-3 { background: #d08770; color: #000; }
 
   .athlete-score {
-    font-size: 28px;
-    font-weight: 900;
-    color: var(--accent);
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
+    font-size: 28px; font-weight: 900; color: var(--accent);
+    flex-shrink: 0; font-variant-numeric: tabular-nums;
   }
 
-  .empty-tip {
-    color: rgba(151, 160, 179, 0.45);
-    text-align: center;
-    margin-top: 80px;
-    font-size: 18px;
-  }
+  .empty-tip { color: rgba(151, 160, 179, 0.45); text-align: center; margin-top: 80px; font-size: 18px; }
 
-  /* ================= Fullscreen 全屏按钮 ================= */
   #fullscreenBtn {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    background: rgba(13, 27, 42, 0.85);
-    color: var(--accent);
-    border: 1px solid rgba(244, 201, 78, 0.4);
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-    opacity: 0.35;
-    transition: opacity 0.25s ease, transform 0.2s ease, background 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    backdrop-filter: blur(4px);
+    position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+    background: rgba(13, 27, 42, 0.85); color: var(--accent);
+    border: 1px solid rgba(244, 201, 78, 0.4); border-radius: 8px;
+    padding: 10px 16px; font-size: 15px; font-weight: 700; cursor: pointer;
+    opacity: 0.35; transition: opacity 0.25s ease, transform 0.2s ease;
+    display: flex; align-items: center; gap: 6px;
   }
-  #fullscreenBtn:hover {
-    opacity: 1;
-    background: rgba(244, 201, 78, 0.15);
-    transform: translateY(-2px);
-  }
-  /* 全屏状态下若鼠标静止自动隐藏按钮 */
-  body.is-fullscreen.idle #fullscreenBtn {
-    opacity: 0;
-    pointer-events: none;
-  }
+  #fullscreenBtn:hover { opacity: 1; background: rgba(244, 201, 78, 0.15); transform: translateY(-2px); }
+  body.is-fullscreen.idle #fullscreenBtn { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -241,24 +160,14 @@
         </div>
       </div>
 
-      <!-- 中间栏：原本的实时成绩看板主体 -->
+      <!-- 中间栏：实时成绩看板主体 -->
       <div class="wrap">
-        <!-- B1: 项目 (eng) -->
         <div class="project-eng" id="projectEng">—</div>
-
-        <!-- B2: 项目 (cn) -->
         <div class="project-chn" id="projectCht">—</div>
-
-        <!-- B3: name-eng -->
         <div class="name-eng" id="nameEng">—</div>
-
-        <!-- B4: name-chn -->
         <div class="name-chn" id="nameCht">—</div>
-
-        <!-- B5: club -->
         <div class="club" id="club">—</div>
 
-        <!-- B6: 标签行（固定文字，不从表格抓） -->
         <div class="labels-row" id="labelsRow" style="margin-top:18px">
           <div class="label-card">
             <div class="label" id="labelA">A组得分</div>
@@ -269,171 +178,3 @@
             <div class="value" id="valB">—</div>
           </div>
           <div class="label-card">
-            <div class="label" id="labelD">纪律扣分</div>
-            <div class="value" id="valD">—</div>
-          </div>
-          <div class="label-card">
-            <div class="label" id="labelF">裁判长扣分</div>
-            <div class="value" id="valF">—</div>
-          </div>
-        </div>
-
-        <!-- B8: Final Score 最终得分（固定文字） -->
-        <div class="final-wrap">
-          <div class="final-label" id="finalLabel">Final Score 最终得分</div>
-        </div>
-
-        <!-- B9: Final Score 数字（直接映射 B9） -->
-        <div class="final-score" id="finalScore">—</div>
-
-        <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:6px">
-          最后更新时间：<span id="updatedAt">-</span>
-        </div>
-      </div>
-
-      <!-- 右侧栏：已完成运动员与成绩排名 -->
-      <div class="side-panel">
-        <div class="side-header">
-          <span class="side-title-main">RESULTS</span>
-          <span class="side-title-sub">已完成成绩排行</span>
-        </div>
-        <div class="side-list" id="completedList">
-          <div class="empty-tip">暂无完赛成绩</div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- 全屏切换按钮 -->
-  <button id="fullscreenBtn" onclick="toggleFullScreen()" title="快捷键: F">
-    <span id="fsIcon">⛶</span> <span id="fsText">全屏 Fullscreen</span>
-  </button>
-
-<script>
-/*
-  读取说明（GViz）：
-  - 中间主看板映射（B列 = index 1）：
-      rows[0].c[1] -> B1 (projectEng)
-      rows[1].c[1] -> B2 (projectCht)
-      rows[2].c[1] -> B3 (nameEng)
-      rows[3].c[1] -> B4 (nameCht)
-      rows[4].c[1] -> B5 (club)
-      rows[6].c[1..4] -> B7:E7 (A组, B组, 纪律扣分, 裁判长扣分)
-      rows[8].c[1] -> B9 (Final Score)
-      rows[2].c[5] -> F3 (当前选手编号)
-
-  - 右侧近期选手列表映射（J3:R12，即 rows[2]..rows[11]）：
-      c[9]  -> J列 (号码/总序号)
-      c[10] -> K列 (出场次序)
-      c[11] -> L列 (比赛项目)
-      c[12] -> M列 (英文姓名)
-      c[13] -> N列 (中文姓名)
-      c[16] -> Q列 (最终得分)
-      c[17] -> R列 (裁判确认 TRUE/FALSE)
-*/
-
-const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
-const GID = "387691548";
-const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
-const INTERVAL_MS = 3000;
-
-/* 0-based 列索引：1 = B 列 */
-const FIX_BASE_COL = 1;
-
-function parseGviz(text){
-  return JSON.parse(text.replace(/^[\s\S]*?google\.visualization\.Query\.setResponse\(/, '').replace(/\);?\s*$/, ''));
-}
-function safeCell(rows, r, c){
-  if (!rows || !rows[r] || !rows[r].c) return null;
-  const cell = rows[r].c[c];
-  if (!cell) return null;
-  return (cell.v !== undefined && cell.v !== null) ? cell.v : (cell.f !== undefined ? cell.f : null);
-}
-function formatScore(v){
-  if (v === null || v === undefined || v === '') return '—';
-  const n = Number(v);
-  if (isNaN(n)) return String(v);
-  return n.toFixed(2);
-}
-function escapeHtml(str){
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-
-/* 自动缩放（基于 :root 的 design width/height） */
-function autoScale() {
-    const designWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--design-width')) || 1920;
-    const designHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--design-height')) || 960;
-
-    const scaleX = window.innerWidth / designWidth;
-    const scaleY = window.innerHeight / designHeight;
-    const scale = Math.min(scaleX, scaleY);
-
-    document.getElementById("scaleWrap").style.transform = `scale(${scale})`;
-}
-autoScale();
-window.addEventListener('resize', autoScale);
-
-/* 全屏控制与鼠标静止自动隐藏按钮 */
-function toggleFullScreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(err => {
-      console.warn('Fullscreen request failed:', err);
-    });
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-document.addEventListener('fullscreenchange', () => {
-  const isFs = !!document.fullscreenElement;
-  document.body.classList.toggle('is-fullscreen', isFs);
-  document.getElementById('fsText').innerText = isFs ? '退出全屏 Exit' : '全屏 Fullscreen';
-  setTimeout(autoScale, 100);
-});
-
-// 支持按键盘 F 键快速切换全屏
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'f' || e.key === 'F') {
-    toggleFullScreen();
-  }
-});
-
-let idleTimer = null;
-document.addEventListener('mousemove', () => {
-  document.body.classList.remove('idle');
-  clearTimeout(idleTimer);
-  if (document.fullscreenElement) {
-    idleTimer = setTimeout(() => {
-      document.body.classList.add('idle');
-    }, 2500);
-  }
-});
-
-/* 渲染左右侧边栏（读取 J3:R12 区域） */
-function renderSideLists(rows, currentProjCht, currentNameEng, currentNameCht, currentAthleteId) {
-  const waiting = [];
-  const completed = [];
-
-  // J3:R12 对应 0-based 行索引 r = 2 到 rows.length - 1
-  for (let r = 2; r < rows.length; r++) {
-    const athleteId = safeCell(rows, r, 9);    // J列: 号码
-    const orderNum  = safeCell(rows, r, 10);   // K列: 出场次序
-    const projCht   = safeCell(rows, r, 11);   // L列: 比赛项目
-    const nameEng   = safeCell(rows, r, 12);   // M列: 英文姓名
-    const nameCht   = safeCell(rows, r, 13);   // N列: 中文姓名
-    const rawScore  = safeCell(rows, r, 16);   // Q列: 最终得分
-    const confirmed = safeCell(rows, r, 17);   // R列: 裁判确认
-
-    // 跳过无姓名的空行
-    if (!nameEng && !nameCht) continue;
-
-    // 仅展示与当前场上比赛项目一致的选手（若 L 列有值且当前 B2 有值）
-    if (currentProjCht && currentProjCht !== '—' && projCht && String(projCht).trim() !== String(currentProjCht).trim()) {
-      continue;
-    }
-
-    // 判断是否为当前正在场上比赛的选手（避免在等待区重复出现）
-    const isCurrentById = (currentAthleteId !== null && athleteId !== null && String(athleteId).trim() === String(currentAthleteId).trim());
-    const isCurrent

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 状态修正版</title>
+<title>实时成绩看板 - 终极适配版</title>
 <style>
   :root{
     --bg:#071226;
@@ -491,7 +491,8 @@ function processQueueAndRender(rows, offset, currentProjCht, ongoingNames, curre
     }
 
     const numScore = Number(rawScore);
-    const hasScore = !isNaN(numScore); // 只要有数字（包括负数或0）就算出分
+    // 只要 Q列有数值（数字，包括负数和0），或者 R列已确认，就判定为已出分/完赛
+    const hasScore = (rawScore !== null && rawScore !== undefined && rawScore !== '' && !isNaN(numScore));
     const isConfirmed = (confirmed === true || String(confirmed).toUpperCase() === 'TRUE' || String(confirmed).toLowerCase() === 'yes' || hasScore);
 
     queueList.push({
@@ -509,16 +510,15 @@ function processQueueAndRender(rows, offset, currentProjCht, ongoingNames, curre
 
   const waitingAthletes = [];
 
-  // 遍历队列：如果在中间正在比赛的选手直接跳过（不留在左侧队列）；如果已出分/确认则自动加入右侧已完成排行；其余留在左侧等待
   queueList.forEach((item) => {
+    // 检查是否为当前正在场上比赛的选手
     const isOngoing = ongoingNames.some(ogName => ogName && item.nameEng.trim().toLowerCase() === ogName.trim().toLowerCase());
 
     if (isOngoing) {
-      // 正在比赛的选手不放入左侧等待队列，也不放入右侧已完成
-      return;
+      return; // 正在比赛的选手不进入左侧队列
     }
 
-    // 只要有最终得分或者被确认，就放入右侧完赛排行榜
+    // 智能完赛判定：只要已经出分（hasScore）或裁判确认（isConfirmed），坚决移入右侧 RESULTS 排行榜
     if (item.hasScore || item.isConfirmed) {
       completedMemory.set(item.nameEng + '|' + item.nameCht, {
         nameEng: item.nameEng,
@@ -535,7 +535,6 @@ function processQueueAndRender(rows, offset, currentProjCht, ongoingNames, curre
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
-  // 1. 顶部固定显示正在比赛的选手
   if (ongoingNames.length > 0 && ongoingNames[0] !== '—') {
     leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
     ongoingNames.forEach((ogName) => {
@@ -552,7 +551,6 @@ function processQueueAndRender(rows, offset, currentProjCht, ongoingNames, curre
     });
   }
 
-  // 2. 下方显示等待出场选手 (BE READY)
   if (waitingAthletes.length > 0) {
     leftHtml += `<div class="group-label group-beready"><span>⏳ BE READY</span><span>准备上场</span></div>`;
     waitingAthletes.forEach((item, idx) => {
@@ -634,6 +632,7 @@ window.handleGvizResponse = function(data) {
     }
   }
 
+  // 自动检测表格 H2 单元格（行 offset+1, 列 7 即 H列）作为多人模式开关（1=单人, 2=双人, 3=三人）
   const sheetModeVal = Number(safeCell(rows, 1 + offset, 7)) || 1;
   const hasSlash = /[\/,&+，、]/.test(String(currentAthleteId || ''));
   
@@ -644,7 +643,6 @@ window.handleGvizResponse = function(data) {
     targetCount = String(currentAthleteId).split(/[\/,&+，、\s]+/).length;
   }
 
-  // 渲染单人/多人主看板
   document.getElementById('projectEng').innerText = projectEng;
   document.getElementById('projectCht').innerText = projectCht;
 
@@ -670,8 +668,69 @@ window.handleGvizResponse = function(data) {
     multiView.style.display = 'grid';
     multiView.className = targetCount === 3 ? 'layout-3' : '';
 
-    // 多人模式下组装数据
     const idParts = String(currentAthleteId || '').split(/[\/,&+，、\s]+/).map(s => s.trim()).filter(Boolean);
     const multiCards = [ { ...p1Data, tagNum: 1 } ];
 
-    for (let i = 1; i
+    for (let i = 1; i < targetCount; i++) {
+      const explicitId = idParts[i] || null;
+      let found = null;
+      for (let r = 0; r < rows.length; r++) {
+        const aid = safeCell(rows, r, 9);
+        if (explicitId && aid && String(aid).trim() === explicitId) {
+          found = {
+            nameEng: safeCell(rows, r, 12) || '—',
+            nameCht: safeCell(rows, r, 13) || '—',
+            club:    safeCell(rows, r, 14) || '—',
+            finalScore: formatScore(safeCell(rows, r, 16))
+          };
+          break;
+        }
+      }
+      if (!found) {
+        found = { nameEng: `选手 ${i+1}`, nameCht: '—', club: '—', finalScore: '—' };
+      }
+      ongoingNames.push(found.nameEng);
+      multiCards.push({ ...found, valA:'—', valB:'—', valD:'—', valF:'—', tagNum: i+1 });
+    }
+
+    multiView.innerHTML = multiCards.map((athlete) => `
+      <div class="multi-card">
+        <div>
+          <div class="multi-tag">ON GOING · 选手 ${athlete.tagNum}</div>
+          <div class="multi-name-eng">${escapeHtml(athlete.nameEng)}</div>
+          <div class="multi-name-chn">${escapeHtml(athlete.nameCht)}</div>
+          <div class="multi-club">${escapeHtml(athlete.club)}</div>
+          <div class="multi-subscores">
+            <div class="multi-subcard"><div class="label">A组</div><div class="value">${athlete.tagNum === 1 ? p1Data.valA : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">B组</div><div class="value">${athlete.tagNum === 1 ? p1Data.valB : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">纪律</div><div class="value">${athlete.tagNum === 1 ? p1Data.valD : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">裁判长</div><div class="value">${athlete.tagNum === 1 ? p1Data.valF : '—'}</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="multi-final-label">Final Score 最终得分</div>
+          <div class="multi-final-score">${escapeHtml(athlete.finalScore)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  processQueueAndRender(rows, offset, projectCht, ongoingNames, currentAthleteId, targetCount);
+  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
+};
+
+function fetchAndRender() {
+  const oldScript = document.getElementById('gvizScript');
+  if (oldScript) oldScript.remove();
+
+  const script = document.createElement('script');
+  script.id = 'gvizScript';
+  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
+  document.body.appendChild(script);
+}
+
+fetchAndRender();
+setInterval(fetchAndRender, INTERVAL_MS);
+</script>
+</body>
+</html>

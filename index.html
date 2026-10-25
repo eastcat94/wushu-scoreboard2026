@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 最终精准版</title>
+<title>实时成绩看板 - 完美对齐版</title>
 <style>
   :root{
     --bg:#071226;
@@ -237,7 +237,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (联动 J3:S12 区域) -->
+      <!-- 左栏：QUEUE (联动 J3:S12 范围) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -286,7 +286,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS (严格联动 J17:R30 完赛成绩区) -->
+      <!-- 右栏：RESULTS (精准联动 J17:R30 完赛成绩区) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -368,7 +368,7 @@ function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 左侧 QUEUE 联动：从第 3 行到第 12 行 (对应 rows index 2 到 11，覆盖 J3:S12 范围)
+  // 1. 左侧 QUEUE 联动：扫描 J3:S12 区域 (对应 rows index 2 到 11)
   for (let r = 2; r <= Math.min(11, rows.length - 1); r++) {
     if (!rows[r]) continue;
     const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
@@ -432,9 +432,9 @@ function processQueueAndRender(rows) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 2. 右侧 RESULTS 严格联动 J17:R30 完赛成绩区 (对应 rows index 16 到 29)
+  // 2. 右侧 RESULTS：严格联动 J17:R30 完赛成绩区（对应表格第 17 行开始，即 index 16 起）
   const completedArr = [];
-  for (let r = 16; r <= Math.min(29, rows.length - 1); r++) {
+  for (let r = 16; r <= Math.min(30, rows.length - 1); r++) {
     if (!rows[r]) continue;
     const nameEng  = safeCell(rows, r, 12); // M列 (英文姓名)
     const nameCht  = safeCell(rows, r, 13); // N列 (中文姓名)

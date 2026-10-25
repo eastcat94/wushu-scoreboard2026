@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - RESULTS修复版</title>
+<title>实时成绩看板 - 最终精准版</title>
 <style>
   :root{
     --bg:#071226;
@@ -237,7 +237,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (联动 J3:S10) -->
+      <!-- 左栏：QUEUE (联动 J3:S12 区域) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -248,7 +248,7 @@
         </div>
       </div>
 
-      <!-- 中间主看板 (联动 B2:E10) -->
+      <!-- 中间主看板 (联动 B2:E10 范围) -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
@@ -286,7 +286,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS (自动扫描包含完赛成绩表的行范围) -->
+      <!-- 右栏：RESULTS (严格联动 J17:R30 完赛成绩区) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -368,8 +368,8 @@ function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 左侧 QUEUE 队列：从第 7 行开始扫描（index 6 起，对应选手列表区 J3:S10 的实际行）
-  for (let r = 6; r < rows.length; r++) {
+  // 1. 左侧 QUEUE 联动：从第 3 行到第 12 行 (对应 rows index 2 到 11，覆盖 J3:S12 范围)
+  for (let r = 2; r <= Math.min(11, rows.length - 1); r++) {
     if (!rows[r]) continue;
     const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
     const nameEng   = safeCell(rows, r, 12);   // M列 (英文姓名)
@@ -377,7 +377,7 @@ function processQueueAndRender(rows) {
     const tickVal   = safeCell(rows, r, 18);   // S列 (Tick Box)
 
     if (!nameEng && !nameCht) continue;
-    if (String(nameEng).includes('NAME') || String(nameEng).includes('英文姓名')) continue;
+    if (String(nameEng).includes('NAME') || String(nameEng).includes('英文姓名') || String(nameEng).includes('编号')) continue;
 
     const athleteObj = {
       nameEng: nameEng || '—',
@@ -432,17 +432,16 @@ function processQueueAndRender(rows) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 2. 右侧 RESULTS：根据你的截图，完赛成绩表位于下方（从第 20 行到第 45 行动态扫描）
+  // 2. 右侧 RESULTS 严格联动 J17:R30 完赛成绩区 (对应 rows index 16 到 29)
   const completedArr = [];
-  for (let r = 18; r < rows.length; r++) {
+  for (let r = 16; r <= Math.min(29, rows.length - 1); r++) {
     if (!rows[r]) continue;
     const nameEng  = safeCell(rows, r, 12); // M列 (英文姓名)
     const nameCht  = safeCell(rows, r, 13); // N列 (中文姓名)
     const rawScore = safeCell(rows, r, 16); // Q列 (最终得分)
 
-    // 如果既没有名字也没有分数，或者是表头标题行，则跳过
-    if (!nameEng && !nameCht) continue;
-    if (String(nameEng).includes('英文姓名') || String(nameEng).includes('NAME') || String(nameEng).includes('同项目完赛成绩')) continue;
+    if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
+    if (String(nameEng).includes('英文姓名') || String(nameEng).includes('NAME') || String(nameEng).includes('同项目完赛成绩') || String(nameEng).includes('名次')) continue;
 
     const numScore = Number(rawScore);
     completedArr.push({

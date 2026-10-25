@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 精准坐标版</title>
+<title>实时成绩看板 - RESULTS修复版</title>
 <style>
   :root{
     --bg:#071226;
@@ -118,7 +118,6 @@
     margin-top: 10px;
   }
 
-  /* 普通卡片样式（无高亮） */
   .athlete-item {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -287,7 +286,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS (联动 J15:R30) -->
+      <!-- 右栏：RESULTS (自动扫描包含完赛成绩表的行范围) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -302,7 +301,7 @@
   </div>
 
   <button id="fullscreenBtn" onclick="toggleFullScreen()" title="快捷键: F">
-    <span>⛶</span> <span id="fsText">全屏 Fullscreen</span>
+    <span>⛶</span> <span id="fsText">Full Screen</span>
   </button>
 
 <script>
@@ -349,7 +348,7 @@ function toggleFullScreen() {
 document.addEventListener('fullscreenchange', () => {
   const isFs = !!document.fullscreenElement;
   document.body.classList.toggle('is-fullscreen', isFs);
-  document.getElementById('fsText').innerText = isFs ? '退出全屏 Exit' : '全屏 Fullscreen';
+  document.getElementById('fsText').innerText = isFs ? 'Exit Full' : 'Full Screen';
   setTimeout(autoScale, 100);
 });
 document.addEventListener('keydown', e => {
@@ -369,16 +368,16 @@ function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 左侧 QUEUE 严格联动 J3:S10 范围 (index 2 到 9)
-  for (let r = 2; r <= 9; r++) {
+  // 1. 左侧 QUEUE 队列：从第 7 行开始扫描（index 6 起，对应选手列表区 J3:S10 的实际行）
+  for (let r = 6; r < rows.length; r++) {
     if (!rows[r]) continue;
-    const athleteId = safeCell(rows, r, 9);    // J列
-    const orderNum  = safeCell(rows, r, 10);   // K列
-    const nameEng   = safeCell(rows, r, 12);   // M列: 英文姓名
-    const nameCht   = safeCell(rows, r, 13);   // N列: 中文姓名
-    const tickVal   = safeCell(rows, r, 18);   // S列: Tick Box (TRUE/FALSE)
+    const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
+    const nameEng   = safeCell(rows, r, 12);   // M列 (英文姓名)
+    const nameCht   = safeCell(rows, r, 13);   // N列 (中文姓名)
+    const tickVal   = safeCell(rows, r, 18);   // S列 (Tick Box)
 
     if (!nameEng && !nameCht) continue;
+    if (String(nameEng).includes('NAME') || String(nameEng).includes('英文姓名')) continue;
 
     const athleteObj = {
       nameEng: nameEng || '—',
@@ -386,7 +385,7 @@ function processQueueAndRender(rows) {
       orderNum
     };
 
-    const isChecked = (tickVal === true || String(tickVal).toUpperCase() === 'TRUE' || String(tickVal) === '1');
+    const isChecked = (tickVal === true || String(tickVal).toUpperCase() === 'TRUE' || String(tickVal) === '1' || String(tickVal).toLowerCase() === 'yes');
 
     if (isChecked) {
       ongoingList.push(athleteObj);
@@ -395,7 +394,7 @@ function processQueueAndRender(rows) {
     }
   }
 
-  // 渲染左侧 QUEUE (无高亮)
+  // 渲染左侧 QUEUE
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
@@ -433,15 +432,17 @@ function processQueueAndRender(rows) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 2. 右侧 RESULTS 严格联动 J15:R30 范围 (index 14 到 29)
+  // 2. 右侧 RESULTS：根据你的截图，完赛成绩表位于下方（从第 20 行到第 45 行动态扫描）
   const completedArr = [];
-  for (let r = 14; r <= 29; r++) {
+  for (let r = 18; r < rows.length; r++) {
     if (!rows[r]) continue;
-    const nameEng  = safeCell(rows, r, 12); // M列
-    const nameCht  = safeCell(rows, r, 13); // N列
-    const rawScore = safeCell(rows, r, 16); // Q列
+    const nameEng  = safeCell(rows, r, 12); // M列 (英文姓名)
+    const nameCht  = safeCell(rows, r, 13); // N列 (中文姓名)
+    const rawScore = safeCell(rows, r, 16); // Q列 (最终得分)
 
-    if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
+    // 如果既没有名字也没有分数，或者是表头标题行，则跳过
+    if (!nameEng && !nameCht) continue;
+    if (String(nameEng).includes('英文姓名') || String(nameEng).includes('NAME') || String(nameEng).includes('同项目完赛成绩')) continue;
 
     const numScore = Number(rawScore);
     completedArr.push({

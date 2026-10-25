@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 智能对齐版</title>
+<title>实时成绩看板 - 表格全自动联动版</title>
 <style>
   :root{
     --bg:#071226;
     --card:#0d1b2a;
     --card-border:rgba(255,255,255,0.08);
     --accent:#f4c94e;
+    --ongoing:#2ecc71;
     --muted:#97a0b3;
     --font-sans: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
 
@@ -27,29 +28,104 @@
     box-sizing: border-box;
     padding: 24px 36px;
     display: grid;
-    grid-template-columns: 360px 1fr 380px;
+    grid-template-columns: 370px 1fr 380px;
     gap: 28px;
     align-items: center;
   }
 
-  /* 中间主看板 */
-  .wrap{width:100%; box-sizing:border-box; padding:10px 22px; margin:0;}
-  .project-eng{font-size:40px;font-weight:800;text-align:center;margin:8px 0}
-  .project-chn{font-size:40px;text-align:center;margin:6px 0;color:var(--muted)}
-  .name-eng{font-size:40px;font-weight:800;text-align:center;margin:6px 0}
+  /* ================= 中间主看板 ================= */
+  .wrap{width:100%; box-sizing:border-box; padding:10px 16px; margin:0;}
+  .project-eng{font-size:38px;font-weight:800;text-align:center;margin:6px 0;line-height:1.2}
+  .project-chn{font-size:38px;text-align:center;margin:6px 0 14px 0;color:var(--muted)}
+
+  /* 1. 单人视图 */
+  #singleView { display: block; }
+  .name-eng{font-size:42px;font-weight:800;text-align:center;margin:6px 0}
   .name-chn{font-size:40px;text-align:center;margin:6px 0;color:var(--muted)}
-  .club{font-size:40px;text-align:center;margin:6px 0;color:var(--muted)}
+  .club{font-size:36px;text-align:center;margin:6px 0;color:var(--muted)}
 
   .labels-row{display:flex;gap:18px;justify-content:center;margin-top:18px}
-  .label-card{background:var(--card);padding:12px;border-radius:8px;min-width:180px;text-align:center}
+  .label-card{background:var(--card);padding:12px;border-radius:8px;min-width:180px;text-align:center;border:1px solid var(--card-border)}
   .label-card .label{font-size:24px;color:var(--muted);margin-bottom:6px}
   .label-card .value{font-size:60px;font-weight:900}
 
   .final-wrap{text-align:center;margin-top:22px}
   .final-label{display:inline-block;background:var(--accent);color:#000;padding:10px 18px;border-radius:8px;font-weight:800;font-size:35px}
-  .final-score{font-size:250px;font-weight:900;color:var(--accent);margin:-50px 0 14px 0;text-align:center}
+  .final-score{font-size:240px;font-weight:900;color:var(--accent);margin:-45px 0 10px 0;text-align:center;line-height:1.05}
 
-  /* 左右侧边栏 */
+  /* 2. 多人同场视图（双人 / 三人并排自适应） */
+  #multiView {
+    display: none;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-top: 10px;
+  }
+  #multiView.layout-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .multi-card {
+    background: rgba(13, 27, 42, 0.75);
+    border: 2px solid rgba(244, 201, 78, 0.35);
+    border-radius: 16px;
+    padding: 18px 14px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .multi-tag {
+    display: inline-block;
+    align-self: center;
+    background: rgba(46, 204, 113, 0.2);
+    color: var(--ongoing);
+    border: 1px solid var(--ongoing);
+    font-size: 14px;
+    font-weight: 800;
+    padding: 3px 12px;
+    border-radius: 20px;
+    margin-bottom: 8px;
+  }
+  .multi-name-eng { font-size: 26px; font-weight: 800; color: #fff; margin: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .multi-name-chn { font-size: 24px; color: var(--muted); margin: 2px 0; }
+  .multi-club { font-size: 18px; color: var(--muted); margin: 2px 0 10px 0; min-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  .multi-subscores {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .multi-subcard {
+    background: var(--bg);
+    padding: 6px 2px;
+    border-radius: 6px;
+    border: 1px solid var(--card-border);
+  }
+  .multi-subcard .label { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+  .multi-subcard .value { font-size: 22px; font-weight: 900; color: #fff; }
+
+  .multi-final-label {
+    display: inline-block;
+    align-self: center;
+    background: var(--accent);
+    color: #000;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 16px;
+    margin-bottom: 4px;
+  }
+  .multi-final-score {
+    font-size: 95px;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    margin: 4px 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ================= 左右侧边栏 ================= */
   .side-panel {
     background: rgba(13, 27, 42, 0.55);
     border: 1px solid var(--card-border);
@@ -64,7 +140,7 @@
   .side-header {
     border-bottom: 2px solid rgba(244, 201, 78, 0.25);
     padding-bottom: 14px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -86,33 +162,74 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     padding-right: 4px;
   }
   .side-list::-webkit-scrollbar { width: 4px; }
   .side-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
+  /* 左侧分组标签 */
+  .group-label {
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .group-label:first-child { margin-top: 0; }
+  .group-ongoing {
+    background: rgba(46, 204, 113, 0.18);
+    color: var(--ongoing);
+    border-left: 4px solid var(--ongoing);
+  }
+  .group-beready {
+    background: rgba(244, 201, 78, 0.18);
+    color: var(--accent);
+    border-left: 4px solid var(--accent);
+    margin-top: 10px;
+  }
+
   .athlete-item {
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: 10px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
   }
 
+  .athlete-item.ongoing-highlight {
+    border-color: var(--ongoing);
+    background: linear-gradient(90deg, rgba(46, 204, 113, 0.14) 0%, rgba(13, 27, 42, 0.95) 100%);
+    box-shadow: 0 4px 14px rgba(46, 204, 113, 0.12);
+  }
+
   .athlete-item.be-ready-highlight {
     border-color: var(--accent);
     background: linear-gradient(90deg, rgba(244, 201, 78, 0.14) 0%, rgba(13, 27, 42, 0.95) 100%);
-    box-shadow: 0 4px 16px rgba(244, 201, 78, 0.12);
+    box-shadow: 0 4px 14px rgba(244, 201, 78, 0.1);
   }
 
+  .badge-ongoing {
+    background: var(--ongoing);
+    color: #000;
+    font-size: 12px;
+    font-weight: 900;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
   .badge-ready {
     background: var(--accent);
     color: #000;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 900;
     padding: 4px 8px;
     border-radius: 6px;
@@ -135,7 +252,7 @@
     min-width: 0;
   }
   .athlete-names .n-eng {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
     color: #fff;
     white-space: nowrap;
@@ -144,9 +261,9 @@
     line-height: 1.25;
   }
   .athlete-names .n-chn {
-    font-size: 18px;
+    font-size: 17px;
     color: var(--muted);
-    margin-top: 3px;
+    margin-top: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -184,7 +301,7 @@
     font-size: 18px;
   }
 
-  /* 全屏按钮 */
+  /* 右下角全屏按钮 */
   #fullscreenBtn {
     position: fixed;
     bottom: 20px;
@@ -218,50 +335,57 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：Be Ready -->
+      <!-- 左栏：ON GOING & BE READY -->
       <div class="side-panel">
         <div class="side-header">
-          <span class="side-title-main">BE READY</span>
-          <span class="side-title-sub">等待出场</span>
+          <span class="side-title-main">QUEUE</span>
+          <span class="side-title-sub">场上与候场队列</span>
         </div>
         <div class="side-list" id="waitingList">
           <div class="empty-tip">正在同步数据...</div>
         </div>
       </div>
 
-      <!-- 中间栏：主看板 -->
+      <!-- 中间栏：主看板（单人/双人/三人全自动切换） -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
-        <div class="name-eng" id="nameEng">—</div>
-        <div class="name-chn" id="nameCht">—</div>
-        <div class="club" id="club">—</div>
 
-        <div class="labels-row" id="labelsRow">
-          <div class="label-card">
-            <div class="label" id="labelA">A组得分</div>
-            <div class="value" id="valA">—</div>
+        <!-- 1. 单人视图 -->
+        <div id="singleView">
+          <div class="name-eng" id="nameEng">—</div>
+          <div class="name-chn" id="nameCht">—</div>
+          <div class="club" id="club">—</div>
+
+          <div class="labels-row" id="labelsRow">
+            <div class="label-card">
+              <div class="label" id="labelA">A组得分</div>
+              <div class="value" id="valA">—</div>
+            </div>
+            <div class="label-card">
+              <div class="label" id="labelB">B组得分</div>
+              <div class="value" id="valB">—</div>
+            </div>
+            <div class="label-card">
+              <div class="label" id="labelD">纪律扣分</div>
+              <div class="value" id="valD">—</div>
+            </div>
+            <div class="label-card">
+              <div class="label" id="labelF">裁判长扣分</div>
+              <div class="value" id="valF">—</div>
+            </div>
           </div>
-          <div class="label-card">
-            <div class="label" id="labelB">B组得分</div>
-            <div class="value" id="valB">—</div>
+
+          <div class="final-wrap">
+            <div class="final-label" id="finalLabel">Final Score 最终得分</div>
           </div>
-          <div class="label-card">
-            <div class="label" id="labelD">纪律扣分</div>
-            <div class="value" id="valD">—</div>
-          </div>
-          <div class="label-card">
-            <div class="label" id="labelF">裁判长扣分</div>
-            <div class="value" id="valF">—</div>
-          </div>
+          <div class="final-score" id="finalScore">—</div>
         </div>
 
-        <div class="final-wrap">
-          <div class="final-label" id="finalLabel">Final Score 最终得分</div>
-        </div>
-        <div class="final-score" id="finalScore">—</div>
+        <!-- 2. 多人同场视图容器 -->
+        <div id="multiView"></div>
 
-        <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:6px">
+        <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">
           状态：<span id="updatedAt">正在连接 Google Sheet...</span>
         </div>
       </div>
@@ -285,11 +409,13 @@
   </button>
 
 <script>
-// 直接通过工作表名称 "score" 绑定，彻底避免 GID 变化导致连接失败
-const SPREADSHEET_ID = (window.location.hash.slice(1)) || "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
+const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
 const SHEET_NAME = "score";
 const INTERVAL_MS = 3000;
 const FIX_BASE_COL = 1; // B列
+
+let rememberedProject = "";
+const completedMemory = new Map();
 
 function safeCell(rows, r, c){
   if (!rows || r < 0 || !rows[r] || !rows[r].c) return null;
@@ -312,7 +438,6 @@ function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 }
 
-/* 自适应缩放 */
 function autoScale() {
   const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 960);
   document.getElementById("scaleWrap").style.transform = `scale(${scale})`;
@@ -320,7 +445,6 @@ function autoScale() {
 autoScale();
 window.addEventListener('resize', autoScale);
 
-/* 全屏切换 */
 function toggleFullScreen() {
   if (!document.fullscreenElement) {
     document.documentElement.requestFullscreen().catch(e => console.warn(e));
@@ -347,78 +471,171 @@ document.addEventListener('mousemove', () => {
   }
 });
 
-/* 渲染左右列表 */
-function renderSideLists(rows, currentProjCht, currentNameEng, currentAthleteId) {
-  const waiting = [];
-  const completed = [];
+/* 处理队列、左右栏与多人同场渲染 */
+function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthleteIdRaw, targetCount) {
+  if (currentProjCht && currentProjCht !== '—' && currentProjCht !== rememberedProject) {
+    rememberedProject = currentProjCht;
+    completedMemory.clear();
+  }
+
+  const queueList = [];
 
   for (let r = 0; r < rows.length; r++) {
-    const athleteId = safeCell(rows, r, 9);    // J列: 号码
-    const orderNum  = safeCell(rows, r, 10);   // K列: 出场次序
-    const projCht   = safeCell(rows, r, 11);   // L列: 比赛项目
-    const nameEng   = safeCell(rows, r, 12);   // M列: 英文姓名
-    const nameCht   = safeCell(rows, r, 13);   // N列: 中文姓名
-    const rawScore  = safeCell(rows, r, 16);   // Q列: 最终得分
-    const confirmed = safeCell(rows, r, 17);   // R列: 裁判确认
+    const athleteId = safeCell(rows, r, 9);
+    const orderNum  = safeCell(rows, r, 10);
+    const projCht   = safeCell(rows, r, 11);
+    const nameEng   = safeCell(rows, r, 12);
+    const nameCht   = safeCell(rows, r, 13);
+    const clubName  = safeCell(rows, r, 14);
+    const rawScore  = safeCell(rows, r, 16);
+    const confirmed = safeCell(rows, r, 17);
 
     if (!nameEng && !nameCht) continue;
-    // 自动跳过表头行
-    if (String(projCht || '').includes('比赛项目') || String(athleteId || '').includes('号码') || String(nameEng || '').includes('英文姓名')) {
-      continue;
-    }
+    if (String(projCht || '').includes('比赛项目') || String(athleteId || '').includes('号码')) continue;
 
-    // 过滤非当前项目的选手
     if (currentProjCht && currentProjCht !== '—' && projCht && String(projCht).trim() !== String(currentProjCht).trim()) {
       continue;
     }
-
-    const isCurrentById = (currentAthleteId !== null && athleteId !== null && String(athleteId).trim() === String(currentAthleteId).trim());
-    const isCurrentByName = (currentNameEng && currentNameEng !== '—' && nameEng && String(nameEng).trim() === String(currentNameEng).trim());
-    const isCurrent = isCurrentById || isCurrentByName;
 
     const numScore = Number(rawScore);
     const hasScore = !isNaN(numScore) && numScore > 0;
     const isConfirmed = (confirmed === true || String(confirmed).toUpperCase() === 'TRUE');
 
-    if (isConfirmed || (hasScore && !isCurrent)) {
-      completed.push({
-        nameEng: nameEng || '—',
-        nameCht: nameCht || '—',
-        score: isNaN(numScore) ? 0 : numScore,
-        scoreText: formatScore(rawScore)
+    queueList.push({
+      athleteId,
+      orderNum,
+      nameEng: nameEng || '—',
+      nameCht: nameCht || '—',
+      club: clubName || '—',
+      score: isNaN(numScore) ? 0 : numScore,
+      scoreText: formatScore(rawScore),
+      hasScore,
+      isConfirmed
+    });
+  }
+
+  const idParts = String(currentAthleteIdRaw || '').split(/[\/,&+，、\s]+/).map(s => s.trim()).filter(Boolean);
+  const p1Id = idParts[0] || null;
+
+  let p1Index = queueList.findIndex(item =>
+    (p1Id !== null && item.athleteId !== null && String(item.athleteId).trim() === p1Id) ||
+    (p1Data.nameEng && p1Data.nameEng !== '—' && item.nameEng.trim() === p1Data.nameEng.trim())
+  );
+
+  const ongoingAthletes = [];
+  const waitingAthletes = [];
+
+  if (p1Index !== -1) {
+    ongoingAthletes.push(queueList[p1Index]);
+  } else if (p1Data.nameEng !== '—' || p1Data.nameCht !== '—') {
+    ongoingAthletes.push({
+      orderNum: 1,
+      nameEng: p1Data.nameEng,
+      nameCht: p1Data.nameCht,
+      club: p1Data.club,
+      scoreText: p1Data.finalScore
+    });
+  }
+
+  const multiAthletesData = [ {
+    nameEng: p1Data.nameEng,
+    nameCht: p1Data.nameCht,
+    club: p1Data.club,
+    valA: p1Data.valA, valB: p1Data.valB, valD: p1Data.valD, valF: p1Data.valF,
+    finalScore: p1Data.finalScore
+  } ];
+
+  // 自动搜寻第 2、第 3 位同场选手
+  for (let i = 1; i < targetCount; i++) {
+    const explicitId = idParts[i] || null;
+    let nextIdx = -1;
+
+    if (explicitId) {
+      nextIdx = queueList.findIndex(item => item.athleteId !== null && String(item.athleteId).trim() === explicitId);
+    } else if (p1Index !== -1 && p1Index + i < queueList.length) {
+      nextIdx = p1Index + i;
+    }
+
+    if (nextIdx !== -1 && queueList[nextIdx]) {
+      const qNext = queueList[nextIdx];
+      ongoingAthletes.push(qNext);
+      multiAthletesData.push({
+        nameEng: qNext.nameEng,
+        nameCht: qNext.nameCht,
+        club: qNext.club,
+        valA: '—', valB: '—', valD: '—', valF: '—',
+        finalScore: qNext.scoreText
       });
-    } else if (!isCurrent) {
-      waiting.push({
-        orderNum: orderNum,
-        nameEng: nameEng || '—',
-        nameCht: nameCht || '—'
+    } else {
+      multiAthletesData.push({
+        nameEng: '等待数据...', nameCht: '—', club: '—',
+        valA: '—', valB: '—', valD: '—', valF: '—', finalScore: '—'
       });
     }
   }
 
+  // 分类已完成和等待区
+  queueList.forEach((item, idx) => {
+    const isOngoing = ongoingAthletes.some(og => og.nameEng.trim() === item.nameEng.trim());
+    if (item.isConfirmed || (item.hasScore && !isOngoing)) {
+      completedMemory.set(item.nameEng + '|' + item.nameCht, {
+        nameEng: item.nameEng,
+        nameCht: item.nameCht,
+        score: item.score,
+        scoreText: item.scoreText
+      });
+    } else if (!isOngoing) {
+      waitingAthletes.push(item);
+    }
+  });
+
+  // 渲染左侧栏
   const waitingEl = document.getElementById('waitingList');
-  if (waiting.length === 0) {
-    waitingEl.innerHTML = '<div class="empty-tip">暂无候场选手</div>';
-  } else {
-    waitingEl.innerHTML = waiting.map((item, idx) => `
-      <div class="athlete-item ${idx === 0 ? 'be-ready-highlight' : ''}">
-        <span class="${idx === 0 ? 'badge-ready' : 'badge-queue'}">
-          ${idx === 0 ? 'BE READY' : '#' + (item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1))}
-        </span>
-        <div class="athlete-names">
-          <div class="n-eng">${escapeHtml(item.nameEng)}</div>
-          <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+  let leftHtml = '';
+
+  if (ongoingAthletes.length > 0) {
+    leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
+    ongoingAthletes.forEach((item) => {
+      leftHtml += `
+        <div class="athlete-item ongoing-highlight">
+          <span class="badge-ongoing">ON GOING</span>
+          <div class="athlete-names">
+            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
+            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    });
   }
 
-  completed.sort((a, b) => b.score - a.score);
+  if (waitingAthletes.length > 0) {
+    leftHtml += `<div class="group-label group-beready"><span>⏳ BE READY</span><span>准备上场</span></div>`;
+    waitingAthletes.forEach((item, idx) => {
+      leftHtml += `
+        <div class="athlete-item ${idx === 0 ? 'be-ready-highlight' : ''}">
+          <span class="${idx === 0 ? 'badge-ready' : 'badge-queue'}">
+            ${idx === 0 ? 'BE READY' : '#' + (item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1))}
+          </span>
+          <div class="athlete-names">
+            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
+            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
+
+  // 渲染右侧完赛排行
+  const completedArr = Array.from(completedMemory.values());
+  completedArr.sort((a, b) => b.score - a.score);
+
   const completedEl = document.getElementById('completedList');
-  if (completed.length === 0) {
+  if (completedArr.length === 0) {
     completedEl.innerHTML = '<div class="empty-tip">暂无完赛成绩</div>';
   } else {
-    completedEl.innerHTML = completed.map((item, idx) => {
+    completedEl.innerHTML = completedArr.map((item, idx) => {
       const rank = idx + 1;
       const rankClass = rank <= 3 ? `rank-${rank}` : '';
       return `
@@ -433,19 +650,52 @@ function renderSideLists(rows, currentProjCht, currentNameEng, currentAthleteId)
       `;
     }).join('');
   }
+
+  // 渲染中间看板视图（单人 vs 多人）
+  const singleView = document.getElementById('singleView');
+  const multiView = document.getElementById('multiView');
+
+  if (targetCount <= 1) {
+    singleView.style.display = 'block';
+    multiView.style.display = 'none';
+  } else {
+    singleView.style.display = 'none';
+    multiView.style.display = 'grid';
+    multiView.className = targetCount === 3 ? 'layout-3' : '';
+
+    multiView.innerHTML = multiAthletesData.map((athlete, idx) => `
+      <div class="multi-card">
+        <div>
+          <div class="multi-tag">ON GOING · 选手 ${idx + 1}</div>
+          <div class="multi-name-eng">${escapeHtml(athlete.nameEng)}</div>
+          <div class="multi-name-chn">${escapeHtml(athlete.nameCht)}</div>
+          <div class="multi-club">${escapeHtml(athlete.club)}</div>
+          <div class="multi-subscores">
+            <div class="multi-subcard"><div class="label">A组</div><div class="value">${idx === 0 ? p1Data.valA : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">B组</div><div class="value">${idx === 0 ? p1Data.valB : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">纪律</div><div class="value">${idx === 0 ? p1Data.valD : '—'}</div></div>
+            <div class="multi-subcard"><div class="label">裁判长</div><div class="value">${idx === 0 ? p1Data.valF : '—'}</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="multi-final-label">Final Score 最终得分</div>
+          <div class="multi-final-score">${escapeHtml(athlete.finalScore)}</div>
+        </div>
+      </div>
+    `).join('');
+  }
 }
 
-/* JSONP 回调函数 */
+/* JSONP 回调接收数据 */
 window.handleGvizResponse = function(data) {
   if (!data || data.status === 'error' || !data.table || !data.table.rows) {
-    document.getElementById('updatedAt').innerText = '读取异常: ' + (data && data.errors ? data.errors[0].detailed_message : '空表');
+    document.getElementById('updatedAt').innerText = '读取异常';
     return;
   }
 
   const rows = data.table.rows;
   const baseCol = FIX_BASE_COL;
 
-  // 智能行偏移检测：如果第 1 行 (rows[0].c[1]) 是空的，而第 2 行 (rows[1].c[1]) 有英文项目名，自动向下偏移 1 行
   let offset = 0;
   if (!safeCell(rows, 0, baseCol) && safeCell(rows, 1, baseCol)) {
     offset = 1;
@@ -453,11 +703,18 @@ window.handleGvizResponse = function(data) {
 
   const projectEng = safeCell(rows, 0 + offset, baseCol) || '—';
   const projectCht = safeCell(rows, 1 + offset, baseCol) || '—';
-  const nameEng    = safeCell(rows, 2 + offset, baseCol) || '—';
-  const nameCht    = safeCell(rows, 3 + offset, baseCol) || '—';
-  const club       = safeCell(rows, 4 + offset, baseCol) || '—';
 
-  // 查找当前选手编号（通常在 F列 c[5] 对应“选手编号”所在行）
+  const p1Data = {
+    nameEng:    safeCell(rows, 2 + offset, baseCol) || '—',
+    nameCht:    safeCell(rows, 3 + offset, baseCol) || '—',
+    club:       safeCell(rows, 4 + offset, baseCol) || '—',
+    valA:       formatScore(safeCell(rows, 6 + offset, baseCol)),
+    valB:       formatScore(safeCell(rows, 6 + offset, baseCol+1)),
+    valD:       formatScore(safeCell(rows, 6 + offset, baseCol+2)),
+    valF:       formatScore(safeCell(rows, 6 + offset, baseCol+3)),
+    finalScore: formatScore(safeCell(rows, 8 + offset, baseCol))
+  };
+
   let currentAthleteId = safeCell(rows, 2 + offset, 5);
   for (let r = 0; r < Math.min(rows.length, 6); r++) {
     if (String(safeCell(rows, r, 6) || '').includes('选手编号')) {
@@ -466,20 +723,33 @@ window.handleGvizResponse = function(data) {
     }
   }
 
+  // ✨ 全自动从 Google Sheet 表格读取模式：
+  // 1. 读取 H2 单元格（行 offset+1, 列 7 即 H列）作为显示人数控制（填 2 或 3）
+  // 2. 如果 F3 选手编号里带斜杠（如 7/8），也会自动识别
+  const sheetModeVal = Number(safeCell(rows, 1 + offset, 7)) || 1;
+  const hasSlash = /[\/,&+，、]/.test(String(currentAthleteId || ''));
+  
+  let targetCount = 1;
+  if (sheetModeVal >= 2 && sheetModeVal <= 3) {
+    targetCount = sheetModeVal;
+  } else if (hasSlash) {
+    targetCount = String(currentAthleteId).split(/[\/,&+，、\s]+/).length;
+  }
+
+  // 渲染单人主看板默认文本
   document.getElementById('projectEng').innerText = projectEng;
   document.getElementById('projectCht').innerText = projectCht;
-  document.getElementById('nameEng').innerText = nameEng;
-  document.getElementById('nameCht').innerText = nameCht;
-  document.getElementById('club').innerText = club;
+  document.getElementById('nameEng').innerText    = p1Data.nameEng;
+  document.getElementById('nameCht').innerText    = p1Data.nameCht;
+  document.getElementById('club').innerText       = p1Data.club;
+  document.getElementById('valA').innerText       = p1Data.valA;
+  document.getElementById('valB').innerText       = p1Data.valB;
+  document.getElementById('valD').innerText       = p1Data.valD;
+  document.getElementById('valF').innerText       = p1Data.valF;
+  document.getElementById('finalScore').innerText = p1Data.finalScore;
 
-  document.getElementById('valA').innerText = formatScore(safeCell(rows, 6 + offset, baseCol));
-  document.getElementById('valB').innerText = formatScore(safeCell(rows, 6 + offset, baseCol+1));
-  document.getElementById('valD').innerText = formatScore(safeCell(rows, 6 + offset, baseCol+2));
-  document.getElementById('valF').innerText = formatScore(safeCell(rows, 6 + offset, baseCol+3));
-  document.getElementById('finalScore').innerText = formatScore(safeCell(rows, 8 + offset, baseCol));
-
-  renderSideLists(rows, projectCht, nameEng, currentAthleteId);
-  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
+  processQueueAndRender(rows, offset, projectCht, p1Data, currentAthleteId, targetCount);
+  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString() + (targetCount > 1 ? ` [${targetCount}人同场模式]` : '');
 };
 
 function fetchAndRender() {
@@ -489,9 +759,6 @@ function fetchAndRender() {
   const script = document.createElement('script');
   script.id = 'gvizScript';
   script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
-  script.onerror = function() {
-    document.getElementById('updatedAt').innerText = '网络请求被拦截，请检查表格共享权限或网络';
-  };
   document.body.appendChild(script);
 }
 

@@ -308,10 +308,32 @@
 const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
 const SHEET_GID = "387691548";
 const INTERVAL_MS = 3000;
-const FIX_BASE_COL = 1; // B列
 
-function safeCell(rows, r, c){
-  if (!rows || r < 0 || !rows[r] || !rows[r].c) return null;
+// Google Sheets column indexes are zero-based in Google Visualization responses.
+const COL = {
+  number: 9,       // J: 号码
+  order: 10,       // K: 出场次序
+  project: 11,     // L: 比赛项目
+  nameEng: 12,     // M: 英文姓名
+  nameCht: 13,     // N: 中文姓名
+  school: 14,      // O: 代表学校
+  age: 15,         // P: 年龄
+  score: 16,       // Q: 最终得分
+  referee: 17,     // R: 裁判确认
+  onStage: 18,     // S: 场上勾选
+  resultRank: 20,  // U: 名次
+  resultNumber: 21,// V: 号码
+  resultProject: 22,// W: 比赛项目
+  resultEng: 23,   // X: 英文姓名
+  resultCht: 24,   // Y: 中文姓名
+  resultSchool: 25,// Z: 代表学校
+  resultAge: 26,   // AA: 年龄
+  resultScore: 27, // AB: 最终得分
+  resultReferee: 28// AC: 裁判确认
+};
+
+function safeCell(rows, r, c) {
+  if (!Array.isArray(rows) || r < 0 || !rows[r] || !Array.isArray(rows[r].c)) return null;
   const cell = rows[r].c[c];
   if (!cell) return null;
   if (cell.v !== undefined && cell.v !== null && cell.v !== '') return cell.v;
@@ -319,40 +341,58 @@ function safeCell(rows, r, c){
   return null;
 }
 
-function formatScore(v){
-  if (v === null || v === undefined || v === '') return '—';
-  const n = Number(v);
-  if (isNaN(n)) return String(v);
-  return n.toFixed(2);
+function textCell(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
 }
 
-function escapeHtml(str){
-  if (!str) return '';
-  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function formatScore(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(2) : String(value);
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[ch]);
+}
+
+function isChecked(value) {
+  if (value === true || value === 1) return true;
+  const normalized = textCell(value).toLowerCase();
+  return ['true', 'yes', 'y', '1', '✓', '✔', '是'].includes(normalized);
+}
+
+function setText(id, value, fallback = '—') {
+  const element = document.getElementById(id);
+  if (element) element.textContent = (value !== null && value !== undefined && textCell(value) !== '') ? String(value) : fallback;
 }
 
 function autoScale() {
   const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 960);
-  document.getElementById("scaleWrap").style.transform = `scale(${scale})`;
+  document.getElementById('scaleWrap').style.transform = `scale(${scale})`;
 }
 autoScale();
 window.addEventListener('resize', autoScale);
 
 function toggleFullScreen() {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(e => console.warn(e));
-  } else {
+    const request = document.documentElement.requestFullscreen;
+    if (request) request.call(document.documentElement).catch(error => console.warn(error));
+  } else if (document.exitFullscreen) {
     document.exitFullscreen();
   }
 }
 document.addEventListener('fullscreenchange', () => {
   const isFs = !!document.fullscreenElement;
   document.body.classList.toggle('is-fullscreen', isFs);
-  document.getElementById('fsText').innerText = isFs ? 'Exit Full' : 'Full Screen';
+  setText('fsText', isFs ? 'Exit Full' : 'Full Screen');
   setTimeout(autoScale, 100);
 });
-document.addEventListener('keydown', e => {
-  if (e.key === 'f' || e.key === 'F') toggleFullScreen();
+document.addEventListener('keydown', event => {
+  if (event.key === 'f' || event.key === 'F') toggleFullScreen();
 });
 
 let idleTimer = null;
@@ -364,163 +404,234 @@ document.addEventListener('mousemove', () => {
   }
 });
 
-function processQueueAndRender(rows) {
-  const ongoingList = [];
-  const waitingList = [];
+function rowValue(rows, rowIndex, colIndex) {
+  return textCell(safeCell(rows, rowIndex, colIndex));
+}
 
-  // 1. 左侧 QUEUE 联动：扫描 J3:S12 范围 (对应 rows index 2 到 11)
-  for (let r = 2; r <= Math.min(11, rows.length - 1); r++) {
-    if (!rows[r]) continue;
-    const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
-    const nameEng   = safeCell(rows, r, 12);   // M列 (英文姓名)
-    const nameCht   = safeCell(rows, r, 13);   // N列 (中文姓名)
-    const tickVal   = safeCell(rows, r, 18);   // S列 (Tick Box)
-
-    if (!nameEng && !nameCht) continue;
-    if (String(nameEng).includes('NAME') || String(nameEng).includes('英文姓名') || String(nameEng).includes('编号')) continue;
-
-    const athleteObj = {
-      nameEng: nameEng || '—',
-      nameCht: nameCht || '—',
-      orderNum
+function readQueue(rows) {
+  const onStage = [];
+  const waiting = [];
+  // Row 3 is the heading; participant records normally begin on spreadsheet row 4.
+  // Limit the queue to J:S rows 3–12, matching the sheet's displayed queue block.
+  for (let r = 3; r <= Math.min(11, rows.length - 1); r++) {
+    const item = {
+      rowIndex: r,
+      number: safeCell(rows, r, COL.number),
+      order: safeCell(rows, r, COL.order),
+      project: safeCell(rows, r, COL.project),
+      nameEng: safeCell(rows, r, COL.nameEng),
+      nameCht: safeCell(rows, r, COL.nameCht),
+      school: safeCell(rows, r, COL.school),
+      age: safeCell(rows, r, COL.age),
+      score: safeCell(rows, r, COL.score),
+      referee: safeCell(rows, r, COL.referee),
+      onStage: isChecked(safeCell(rows, r, COL.onStage))
     };
+    if (!textCell(item.nameEng) && !textCell(item.nameCht)) continue;
+    (item.onStage ? onStage : waiting).push(item);
+  }
+  return { onStage, waiting };
+}
 
-    const isChecked = (tickVal === true || String(tickVal).toUpperCase() === 'TRUE' || String(tickVal) === '1' || String(tickVal).toLowerCase() === 'yes');
+function renderQueue(rows) {
+  const container = document.getElementById('waitingList');
+  const queue = readQueue(rows);
+  const fragments = [];
 
-    if (isChecked) {
-      ongoingList.push(athleteObj);
-    } else {
-      waitingList.push(athleteObj);
+  if (queue.onStage.length) {
+    fragments.push(`<div class="group-label group-ongoing"><span>场上比赛</span><span>${queue.onStage.length} 人</span></div>`);
+    queue.onStage.forEach(item => fragments.push(renderQueueCard(item, true)));
+  }
+  if (queue.waiting.length) {
+    fragments.push(`<div class="group-label group-beready"><span>候场队列</span><span>${queue.waiting.length} 人</span></div>`);
+    queue.waiting.forEach(item => fragments.push(renderQueueCard(item, false)));
+  }
+  container.innerHTML = fragments.length ? fragments.join('') : '<div class="empty-tip">暂无场上或候场选手</div>';
+  return queue;
+}
+
+function renderQueueCard(item, isOnStage) {
+  const displayRank = textCell(item.order) || textCell(item.number) || '—';
+  const nameEng = textCell(item.nameEng) || textCell(item.nameCht) || `号码 ${textCell(item.number)}`;
+  const subline = [textCell(item.nameCht), textCell(item.project)].filter(Boolean).join(' · ');
+  const school = textCell(item.school);
+  return `<div class="athlete-item">
+    <div class="rank-badge">${escapeHtml(displayRank)}</div>
+    <div class="athlete-names">
+      <div class="n-eng">${escapeHtml(nameEng)}</div>
+      <div class="n-chn">${escapeHtml(subline || school || ' ')}</div>
+    </div>
+    <span class="${isOnStage ? 'badge-ongoing' : 'badge-queue'}">${isOnStage ? '场上' : '候场'}</span>
+  </div>`;
+}
+
+function readCompletedResults(rows) {
+  const results = [];
+  // U:AC is the spreadsheet's prepared "同项目完赛成绩" table.
+  // Display this table as-is: do not re-filter it using the queue, because the sheet
+  // already determines which project's completed results belong in this area.
+  for (let r = 3; r < rows.length; r++) {
+    const result = {
+      rank: safeCell(rows, r, COL.resultRank),
+      number: safeCell(rows, r, COL.resultNumber),
+      project: safeCell(rows, r, COL.resultProject),
+      nameEng: safeCell(rows, r, COL.resultEng),
+      nameCht: safeCell(rows, r, COL.resultCht),
+      school: safeCell(rows, r, COL.resultSchool),
+      age: safeCell(rows, r, COL.resultAge),
+      score: safeCell(rows, r, COL.resultScore),
+      referee: safeCell(rows, r, COL.resultReferee)
+    };
+    const hasIdentity = [result.number, result.project, result.nameEng, result.nameCht]
+      .some(value => textCell(value) !== '');
+    const hasScore = result.score !== null && result.score !== undefined && textCell(result.score) !== '';
+    if (hasIdentity && hasScore) results.push(result);
+  }
+  return results;
+}
+
+function renderCompleted(rows) {
+  const container = document.getElementById('completedList');
+  const results = readCompletedResults(rows);
+  if (!results.length) {
+    container.innerHTML = '<div class="empty-tip">暂无完赛成绩</div>';
+    return 0;
+  }
+
+  container.innerHTML = results.map((item, index) => {
+    const rank = textCell(item.rank) || String(index + 1);
+    const mainName = textCell(item.nameEng) || textCell(item.nameCht) || `号码 ${textCell(item.number)}`;
+    const lineTwo = [textCell(item.nameCht), textCell(item.project)].filter(Boolean).join(' · ');
+    const lineThree = [
+      textCell(item.number) ? `号码 ${textCell(item.number)}` : '',
+      textCell(item.school),
+      textCell(item.age) ? `${textCell(item.age)}岁` : ''
+    ].filter(Boolean).join(' · ');
+    const rankClass = rank === '1' ? 'rank-1' : rank === '2' ? 'rank-2' : rank === '3' ? 'rank-3' : '';
+    return `<div class="athlete-item">
+      <div class="rank-badge ${rankClass}">${escapeHtml(rank)}</div>
+      <div class="athlete-names">
+        <div class="n-eng">${escapeHtml(mainName)}</div>
+        <div class="n-chn">${escapeHtml(lineTwo || lineThree || ' ')}</div>
+        ${lineThree && lineTwo ? `<div class="n-chn">${escapeHtml(lineThree)}</div>` : ''}
+      </div>
+      <div class="athlete-score">${escapeHtml(formatScore(item.score))}</div>
+    </div>`;
+  }).join('');
+  return results.length;
+}
+
+// Read label/value pairs from B2:E10 if the operator's sheet has them.
+// If labels are absent, the center panel falls back to the first on-stage athlete.
+function findLabeledValue(rows, labelPattern) {
+  for (let r = 1; r <= Math.min(9, rows.length - 1); r++) {
+    for (let c = 1; c <= 4; c++) {
+      const label = rowValue(rows, r, c);
+      if (!label || !labelPattern.test(label)) continue;
+      for (let nextCol = c + 1; nextCol <= 4; nextCol++) {
+        const value = safeCell(rows, r, nextCol);
+        if (value !== null && textCell(value) !== '') return value;
+      }
+      for (let nextRow = r + 1; nextRow <= Math.min(9, rows.length - 1); nextRow++) {
+        const value = safeCell(rows, nextRow, c);
+        if (value !== null && textCell(value) !== '') return value;
+      }
     }
   }
+  return null;
+}
 
-  // 渲染左侧 QUEUE
-  const waitingEl = document.getElementById('waitingList');
-  let leftHtml = '';
+function renderMainBoard(rows, queue) {
+  const current = queue.onStage[0] || queue.waiting[0] || null;
+  const eventEn = findLabeledValue(rows, /英文项目|项目英文|英文比赛项目|english.*(event|project)|event.*english/i);
+  const eventZh = findLabeledValue(rows, /中文项目|项目中文|比赛项目|项目名称|赛事项目|chinese.*(event|project)|event.*chinese/i);
+  const athleteEn = findLabeledValue(rows, /英文姓名|英文名|姓名英文|选手英文|运动员英文|english.*name|name.*english/i);
+  const athleteZh = findLabeledValue(rows, /中文姓名|中文名|姓名中文|选手中文|运动员中文|chinese.*name|name.*chinese/i);
+  const school = findLabeledValue(rows, /代表学校|学校名称|学校|school|club/i);
+  const age = findLabeledValue(rows, /年龄|\bage\b/i);
+  const finalScore = findLabeledValue(rows, /最终得分|最终成绩|总分|final.*score|total.*score/i);
 
-  if (ongoingList.length > 0) {
-    leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
-    ongoingList.forEach((item) => {
-      leftHtml += `
-        <div class="athlete-item">
-          <span class="badge-ongoing">ON GOING</span>
-          <div class="athlete-names">
-            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
-            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
-          </div>
-        </div>
-      `;
-    });
-  }
+  setText('projectEng', eventEn || 'EVENT');
+  setText('projectCht', eventZh || (current && current.project) || '—');
+  setText('nameEng', athleteEn || (current && current.nameEng) || '—');
+  setText('nameCht', athleteZh || (current && current.nameCht) || '—');
+  setText('club', school || (current && current.school) || '—');
+  setText('finalScore', formatScore(finalScore !== null ? finalScore : (current ? current.score : null)));
 
-  if (waitingList.length > 0) {
-    leftHtml += `<div class="group-label group-beready"><span>⏳ QUEUE</span><span>准备上场</span></div>`;
-    waitingList.forEach((item, idx) => {
-      leftHtml += `
-        <div class="athlete-item">
-          <span class="badge-queue">
-            #${item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1)}
-          </span>
-          <div class="athlete-names">
-            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
-            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
-          </div>
-        </div>
-      `;
-    });
-  }
-
-  waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
-
-  // 2. 右侧 RESULTS：精准联动右侧完赛成绩表（W列=英文姓名 index 22, X列=中文姓名 index 23, AB列=最终得分 index 27），不排序，按表格原序输出
-  const completedArr = [];
-  for (let r = 14; r < rows.length; r++) {
-    if (!rows[r]) continue;
-    const nameEng  = safeCell(rows, r, 22); // W列 (英文姓名)
-    const nameCht  = safeCell(rows, r, 23); // X列 (中文姓名)
-    const rawScore = safeCell(rows, r, 27); // AB列 (最终得分)
-
-    if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
-    if (String(nameEng).includes('英文姓名') || String(nameEng).includes('NAME') || String(nameEng).includes('同项目完赛成绩') || String(nameEng).includes('名次')) continue;
-
-    const numScore = Number(rawScore);
-    completedArr.push({
-      nameEng: nameEng || '—',
-      nameCht: nameCht || '—',
-      scoreText: formatScore(rawScore)
-    });
-  }
-
-  const completedEl = document.getElementById('completedList');
-  if (completedArr.length === 0) {
-    completedEl.innerHTML = '<div class="empty-tip">暂无完赛成绩</div>';
-  } else {
-    completedEl.innerHTML = completedArr.map((item, idx) => {
-      const rank = idx + 1;
-      const rankClass = rank <= 3 ? `rank-${rank}` : '';
-      return `
-        <div class="athlete-item">
-          <div class="rank-badge ${rankClass}">${rank}</div>
-          <div class="athlete-names">
-            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
-            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
-          </div>
-          <div class="athlete-score">${escapeHtml(item.scoreText)}</div>
-        </div>
-      `;
-    }).join('');
+  // Update breakdown values only when the B2:E10 block contains matching labels.
+  const breakdown = [
+    ['valA', /A组得分|A组评分|A分|\bA\s*score\b/i],
+    ['valB', /B组得分|B组评分|B分|\bB\s*score\b/i],
+    ['valD', /纪律扣分|纪律分|纪律扣/i],
+    ['valF', /裁判长扣分|裁判长扣|主裁扣分/i]
+  ];
+  breakdown.forEach(([id, pattern]) => {
+    const value = findLabeledValue(rows, pattern);
+    setText(id, value === null ? '—' : formatScore(value));
+  });
+  if (age !== null) {
+    const clubElement = document.getElementById('club');
+    if (clubElement && textCell(age)) clubElement.textContent = `${textCell(school || (current && current.school) || '')}${textCell(school || (current && current.school) || '') ? ' · ' : ''}${textCell(age)}岁`;
   }
 }
 
-/* JSONP 回调接收数据 */
-window.handleGvizResponse = function(data) {
-  if (!data || data.status === 'error' || !data.table || !data.table.rows) {
-    document.getElementById('updatedAt').innerText = '读取异常';
-    return;
+function parseGoogleVisualizationResponse(rawText) {
+  const firstBrace = rawText.indexOf('{');
+  const lastBrace = rawText.lastIndexOf('}');
+  if (firstBrace < 0 || lastBrace <= firstBrace) {
+    throw new Error('Google Sheets 没有返回可识别的数据。请检查工作表分享权限。');
   }
+  const payload = JSON.parse(rawText.slice(firstBrace, lastBrace + 1));
+  if (payload.status && payload.status !== 'ok') {
+    const message = payload.errors && payload.errors.length ? payload.errors.map(error => error.detailed_message || error.message).join('; ') : payload.status;
+    throw new Error(message || 'Google Sheets 查询失败');
+  }
+  if (!payload.table || !Array.isArray(payload.table.rows)) {
+    throw new Error('返回的数据格式不正确。');
+  }
+  return payload.table.rows;
+}
 
-  const rows = data.table.rows;
-  const baseCol = FIX_BASE_COL; // B列
+let isFetching = false;
+async function syncSheet() {
+  if (isFetching) return;
+  isFetching = true;
+  const status = document.getElementById('updatedAt');
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?gid=${SHEET_GID}&headers=0&tqx=out:json&_=${Date.now()}`;
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rawText = await response.text();
+    const rows = parseGoogleVisualizationResponse(rawText);
+    const queue = renderQueue(rows);
+    const resultCount = renderCompleted(rows);
+    renderMainBoard(rows, queue);
+    status.textContent = `同步成功 ${new Date().toLocaleTimeString()} · 完赛成绩 ${resultCount} 条`;
+  } catch (error) {
+    console.error('Google Sheets 同步失败：', error);
+    status.textContent = `同步失败：${error.message || '请检查网络及表格分享权限'}`;
+    const completedList = document.getElementById('completedList');
+    if (completedList && !completedList.dataset.hasRendered) {
+      completedList.innerHTML = '<div class="empty-tip">读取失败：请确认表格已允许通过链接查看</div>';
+    }
+  } finally {
+    isFetching = false;
+  }
+}
 
-  // 中间主看板严格联动 B2:E10 范围 (对应 rows index 1 到 9 区域)
-  const projectEng = safeCell(rows, 0, baseCol) || '—'; // B2
-  const projectCht = safeCell(rows, 1, baseCol) || '—'; // B3
-  const nameEng    = safeCell(rows, 2, baseCol) || '—'; // B4
-  const nameCht    = safeCell(rows, 3, baseCol) || '—'; // B5
-  const club       = safeCell(rows, 4, baseCol) || '—'; // B6
-  const valA       = formatScore(safeCell(rows, 6, baseCol));     // B8
-  const valB       = formatScore(safeCell(rows, 6, baseCol+1));   // C8
-  const valD       = formatScore(safeCell(rows, 6, baseCol+2));   // D8
-  const valF       = formatScore(safeCell(rows, 6, baseCol+3));   // E8
-  const finalScore = formatScore(safeCell(rows, 8, baseCol));     // B10
-
-  document.getElementById('projectEng').innerText = projectEng;
-  document.getElementById('projectCht').innerText = projectCht;
-  document.getElementById('nameEng').innerText    = nameEng;
-  document.getElementById('nameCht').innerText    = nameCht;
-  document.getElementById('club').innerText       = club;
-  document.getElementById('valA').innerText       = valA;
-  document.getElementById('valB').innerText       = valB;
-  document.getElementById('valD').innerText       = valD;
-  document.getElementById('valF').innerText       = valF;
-  document.getElementById('finalScore').innerText = finalScore;
-
-  processQueueAndRender(rows);
-  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
+// Mark the results list after a successful render so a transient network error
+// does not erase the last known good data.
+const originalRenderCompleted = renderCompleted;
+renderCompleted = function(rows) {
+  const count = originalRenderCompleted(rows);
+  const element = document.getElementById('completedList');
+  if (element) element.dataset.hasRendered = 'true';
+  return count;
 };
 
-function fetchAndRender() {
-  const oldScript = document.getElementById('gvizScript');
-  if (oldScript) oldScript.remove();
+syncSheet();
+setInterval(syncSheet, INTERVAL_MS);
 
-  const script = document.createElement('script');
-  script.id = 'gvizScript';
-  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&gid=${SHEET_GID}&_=${Date.now()}`;
-  document.body.appendChild(script);
-}
-
-fetchAndRender();
-setInterval(fetchAndRender, INTERVAL_MS);
 </script>
 </body>
 </html>

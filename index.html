@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 终极合并版</title>
+<title>实时成绩看板 - 按表格原序版</title>
 <style>
   :root{
     --bg:#071226;
@@ -137,4 +137,438 @@
     padding: 4px 8px;
     border-radius: 6px;
     white-space: nowrap;
-    flex-
+    flex-shrink: 0;
+  }
+  .badge-queue {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .athlete-names {
+    flex: 1;
+    min-width: 0;
+  }
+  .athlete-names .n-eng {
+    font-size: 19px;
+    font-weight: 800;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.25;
+  }
+  .athlete-names .n-chn {
+    font-size: 17px;
+    color: var(--muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    color: var(--muted);
+    font-weight: 900;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .rank-1 { background: #f4c94e; color: #000; box-shadow: 0 0 10px rgba(244,201,78,0.4); }
+  .rank-2 { background: #d8dee9; color: #000; }
+  .rank-3 { background: #d08770; color: #000; }
+
+  .athlete-score {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--accent);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty-tip {
+    color: rgba(151, 160, 179, 0.45);
+    text-align: center;
+    margin-top: 80px;
+    font-size: 18px;
+  }
+
+  #fullscreenBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: rgba(13, 27, 42, 0.85);
+    color: var(--accent);
+    border: 1px solid rgba(244, 201, 78, 0.4);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.45;
+    transition: opacity 0.25s ease, transform 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #fullscreenBtn:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  body.is-fullscreen.idle #fullscreenBtn {
+    opacity: 0;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <div id="scaleWrap">
+    <div class="board-layout">
+
+      <!-- 左栏：QUEUE (联动 J3:S12) -->
+      <div class="side-panel">
+        <div class="side-header">
+          <span class="side-title-main">QUEUE</span>
+          <span class="side-title-sub">场上与候场队列</span>
+        </div>
+        <div class="side-list" id="waitingList">
+          <div class="empty-tip">正在同步数据...</div>
+        </div>
+      </div>
+
+      <!-- 中间主看板 (联动 B2:E10) -->
+      <div class="wrap">
+        <div class="project-eng" id="projectEng">—</div>
+        <div class="project-chn" id="projectCht">—</div>
+
+        <div class="name-eng" id="nameEng">—</div>
+        <div class="name-chn" id="nameCht">—</div>
+        <div class="club" id="club">—</div>
+
+        <div class="labels-row" id="labelsRow">
+          <div class="label-card">
+            <div class="label" id="labelA">A组得分</div>
+            <div class="value" id="valA">—</div>
+          </div>
+          <div class="label-card">
+            <div class="label" id="labelB">B组得分</div>
+            <div class="value" id="valB">—</div>
+          </div>
+          <div class="label-card">
+            <div class="label" id="labelD">纪律扣分</div>
+            <div class="value" id="valD">—</div>
+          </div>
+          <div class="label-card">
+            <div class="label" id="labelF">裁判长扣分</div>
+            <div class="value" id="valF">—</div>
+          </div>
+        </div>
+
+        <div class="final-wrap">
+          <div class="final-label" id="finalLabel">Final Score 最终得分</div>
+        </div>
+        <div class="final-score" id="finalScore">—</div>
+
+        <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">
+          状态：<span id="updatedAt">正在连接 Google Sheet...</span>
+        </div>
+      </div>
+
+      <!-- 右栏：RESULTS (采用修复版 U:AC 列原序输出逻辑) -->
+      <div class="side-panel">
+        <div class="side-header">
+          <span class="side-title-main">RESULTS</span>
+          <span class="side-title-sub">已完成成绩排行</span>
+        </div>
+        <div class="side-list" id="completedList">
+          <div class="empty-tip">暂无完赛成绩</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <button id="fullscreenBtn" onclick="toggleFullScreen()" title="快捷键: F">
+    <span>⛶</span> <span id="fsText">Full Screen</span>
+  </button>
+
+<script>
+const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
+const SHEET_GID = "387691548";
+const INTERVAL_MS = 3000;
+const FIX_BASE_COL = 1; // B列
+
+// 保留自《实时成绩看板_2026_修复版_2.html》的右侧列索引
+const COL = {
+  resultRank: 20,   // U: 名次
+  resultNumber: 21, // V: 号码
+  resultProject: 22,// W: 比赛项目
+  resultEng: 23,    // X: 英文姓名
+  resultCht: 24,    // Y: 中文姓名
+  resultSchool: 25, // Z: 代表学校
+  resultAge: 26,    // AA: 年龄
+  resultScore: 27,  // AB: 最终得分
+  resultReferee: 28 // AC: 裁判确认
+};
+
+function safeCell(rows, r, c){
+  if (!rows || r < 0 || !rows[r] || !rows[r].c) return null;
+  const cell = rows[r].c[c];
+  if (!cell) return null;
+  if (cell.v !== undefined && cell.v !== null && cell.v !== '') return cell.v;
+  if (cell.f !== undefined && cell.f !== null && cell.f !== '') return cell.f;
+  return null;
+}
+
+function textCell(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function formatScore(v){
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (isNaN(n)) return String(v);
+  return n.toFixed(2);
+}
+
+function escapeHtml(str){
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function autoScale() {
+  const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 960);
+  document.getElementById("scaleWrap").style.transform = `scale(${scale})`;
+}
+autoScale();
+window.addEventListener('resize', autoScale);
+
+function toggleFullScreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(e => console.warn(e));
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const isFs = !!document.fullscreenElement;
+  document.body.classList.toggle('is-fullscreen', isFs);
+  document.getElementById('fsText').innerText = isFs ? 'Exit Full' : 'Full Screen';
+  setTimeout(autoScale, 100);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'f' || e.key === 'F') toggleFullScreen();
+});
+
+let idleTimer = null;
+document.addEventListener('mousemove', () => {
+  document.body.classList.remove('idle');
+  clearTimeout(idleTimer);
+  if (document.fullscreenElement) {
+    idleTimer = setTimeout(() => document.body.classList.add('idle'), 2500);
+  }
+});
+
+/* ================= 右侧 RESULTS 读取与渲染（完全移植自 实时成绩看板_2026_修复版_2.html） ================= */
+function readCompletedResults(rows) {
+  const results = [];
+  // U:AC is the spreadsheet's prepared "同项目完赛成绩" table.
+  // Display this table as-is: do not re-filter it using the queue, because the sheet
+  // already determines which project's completed results belong in this area.
+  for (let r = 3; r < rows.length; r++) {
+    const result = {
+      rank: safeCell(rows, r, COL.resultRank),
+      number: safeCell(rows, r, COL.resultNumber),
+      project: safeCell(rows, r, COL.resultProject),
+      nameEng: safeCell(rows, r, COL.resultEng),
+      nameCht: safeCell(rows, r, COL.resultCht),
+      school: safeCell(rows, r, COL.resultSchool),
+      age: safeCell(rows, r, COL.resultAge),
+      score: safeCell(rows, r, COL.resultScore),
+      referee: safeCell(rows, r, COL.resultReferee)
+    };
+    const hasIdentity = [result.number, result.project, result.nameEng, result.nameCht]
+      .some(value => textCell(value) !== '');
+    const hasScore = result.score !== null && result.score !== undefined && textCell(result.score) !== '';
+    if (hasIdentity && hasScore) results.push(result);
+  }
+  return results;
+}
+
+function renderCompleted(rows) {
+  const container = document.getElementById('completedList');
+  const results = readCompletedResults(rows);
+  if (!results.length) {
+    container.innerHTML = '<div class="empty-tip">暂无完赛成绩</div>';
+    return 0;
+  }
+
+  container.innerHTML = results.map((item, index) => {
+    const rank = textCell(item.rank) || String(index + 1);
+    const mainName = textCell(item.nameEng) || textCell(item.nameCht) || `号码 ${textCell(item.number)}`;
+    const lineTwo = [textCell(item.nameCht), textCell(item.project)].filter(Boolean).join(' · ');
+    const lineThree = [
+      textCell(item.number) ? `号码 ${textCell(item.number)}` : '',
+      textCell(item.school),
+      textCell(item.age) ? `${textCell(item.age)}岁` : ''
+    ].filter(Boolean).join(' · ');
+    const rankClass = rank === '1' ? 'rank-1' : rank === '2' ? 'rank-2' : rank === '3' ? 'rank-3' : '';
+    return `<div class="athlete-item">
+      <div class="rank-badge ${rankClass}">${escapeHtml(rank)}</div>
+      <div class="athlete-names">
+        <div class="n-eng">${escapeHtml(mainName)}</div>
+        <div class="n-chn">${escapeHtml(lineTwo || lineThree || ' ')}</div>
+        ${lineThree && lineTwo ? `<div class="n-chn">${escapeHtml(lineThree)}</div>` : ''}
+      </div>
+      <div class="athlete-score">${escapeHtml(formatScore(item.score))}</div>
+    </div>`;
+  }).join('');
+  return results.length;
+}
+
+const originalRenderCompleted = renderCompleted;
+renderCompleted = function(rows) {
+  const count = originalRenderCompleted(rows);
+  const element = document.getElementById('completedList');
+  if (element) element.dataset.hasRendered = 'true';
+  return count;
+};
+
+/* ================= 左侧 QUEUE 读取与渲染（完全保留自 实时成绩看板 2026.html） ================= */
+function processQueueAndRender(rows) {
+  const ongoingList = [];
+  const waitingList = [];
+
+  // 1. 左侧 QUEUE 联动：扫描 J3:S12 范围 (对应 rows index 2 到 11)
+  for (let r = 2; r <= Math.min(11, rows.length - 1); r++) {
+    if (!rows[r]) continue;
+    const orderNum  = safeCell(rows, r, 10);   // K列 (出场次序)
+    const nameEng   = safeCell(rows, r, 12);   // M列 (英文姓名)
+    const nameCht   = safeCell(rows, r, 13);   // N列 (中文姓名)
+    const tickVal   = safeCell(rows, r, 18);   // S列 (Tick Box)
+
+    if (!nameEng && !nameCht) continue;
+    if (String(nameEng).includes('NAME') || String(nameEng).includes('英文姓名') || String(nameEng).includes('编号')) continue;
+
+    const athleteObj = {
+      nameEng: nameEng || '—',
+      nameCht: nameCht || '—',
+      orderNum
+    };
+
+    const isChecked = (tickVal === true || String(tickVal).toUpperCase() === 'TRUE' || String(tickVal) === '1' || String(tickVal).toLowerCase() === 'yes');
+
+    if (isChecked) {
+      ongoingList.push(athleteObj);
+    } else {
+      waitingList.push(athleteObj);
+    }
+  }
+
+  // 渲染左侧 QUEUE
+  const waitingEl = document.getElementById('waitingList');
+  let leftHtml = '';
+
+  if (ongoingList.length > 0) {
+    leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
+    ongoingList.forEach((item) => {
+      leftHtml += `
+        <div class="athlete-item">
+          <span class="badge-ongoing">ON GOING</span>
+          <div class="athlete-names">
+            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
+            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  if (waitingList.length > 0) {
+    leftHtml += `<div class="group-label group-beready"><span>⏳ QUEUE</span><span>准备上场</span></div>`;
+    waitingList.forEach((item, idx) => {
+      leftHtml += `
+        <div class="athlete-item">
+          <span class="badge-queue">
+            #${item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1)}
+          </span>
+          <div class="athlete-names">
+            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
+            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
+
+  // 2. 右侧 RESULTS：调用修复版的 renderCompleted 函数
+  renderCompleted(rows);
+}
+
+/* ================= 中间主看板与整体回调（完全保留自 实时成绩看板 2026.html） ================= */
+window.handleGvizResponse = function(data) {
+  if (!data || data.status === 'error' || !data.table || !data.table.rows) {
+    document.getElementById('updatedAt').innerText = '读取异常';
+    return;
+  }
+
+  const rows = data.table.rows;
+  const baseCol = FIX_BASE_COL; // B列
+
+  // 中间主看板严格联动 B2:E10 范围 (对应 rows index 0 到 8 区域)
+  const projectEng = safeCell(rows, 0, baseCol) || '—'; // B2
+  const projectCht = safeCell(rows, 1, baseCol) || '—'; // B3
+  const nameEng    = safeCell(rows, 2, baseCol) || '—'; // B4
+  const nameCht    = safeCell(rows, 3, baseCol) || '—'; // B5
+  const club       = safeCell(rows, 4, baseCol) || '—'; // B6
+  const valA       = formatScore(safeCell(rows, 6, baseCol));     // B8
+  const valB       = formatScore(safeCell(rows, 6, baseCol+1));   // C8
+  const valD       = formatScore(safeCell(rows, 6, baseCol+2));   // D8
+  const valF       = formatScore(safeCell(rows, 6, baseCol+3));   // E8
+  const finalScore = formatScore(safeCell(rows, 8, baseCol));     // B10
+
+  document.getElementById('projectEng').innerText = projectEng;
+  document.getElementById('projectCht').innerText = projectCht;
+  document.getElementById('nameEng').innerText    = nameEng;
+  document.getElementById('nameCht').innerText    = nameCht;
+  document.getElementById('club').innerText       = club;
+  document.getElementById('valA').innerText       = valA;
+  document.getElementById('valB').innerText       = valB;
+  document.getElementById('valD').innerText       = valD;
+  document.getElementById('valF').innerText       = valF;
+  document.getElementById('finalScore').innerText = finalScore;
+
+  processQueueAndRender(rows);
+  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
+};
+
+function fetchAndRender() {
+  const oldScript = document.getElementById('gvizScript');
+  if (oldScript) oldScript.remove();
+
+  const script = document.createElement('script');
+  script.id = 'gvizScript';
+  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&gid=${SHEET_GID}&_=${Date.now()}`;
+  document.body.appendChild(script);
+}
+
+fetchAndRender();
+setInterval(fetchAndRender, INTERVAL_MS);
+</script>
+</body>
+</html>

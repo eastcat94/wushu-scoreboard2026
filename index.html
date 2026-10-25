@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 完赛看板与J17排行版</title>
+<title>实时成绩看板 - 精准坐标版</title>
 <style>
   :root{
     --bg:#071226;
@@ -33,7 +33,7 @@
     align-items: center;
   }
 
-  /* 中间主看板（展示最后一个完赛运动员成绩） */
+  /* 中间主看板 (联动 B2:E10) */
   .wrap{width:100%; box-sizing:border-box; padding:10px 16px; margin:0;}
   .project-eng{font-size:38px;font-weight:800;text-align:center;margin:6px 0;line-height:1.2}
   .project-chn{font-size:38px;text-align:center;margin:6px 0 14px 0;color:var(--muted)}
@@ -118,6 +118,7 @@
     margin-top: 10px;
   }
 
+  /* 取消高亮后的普通卡片样式 */
   .athlete-item {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -129,30 +130,8 @@
     gap: 12px;
   }
 
-  .athlete-item.ongoing-highlight {
-    border-color: var(--ongoing);
-    background: linear-gradient(90deg, rgba(46, 204, 113, 0.14) 0%, rgba(13, 27, 42, 0.95) 100%);
-    box-shadow: 0 4px 14px rgba(46, 204, 113, 0.12);
-  }
-
-  .athlete-item.be-ready-highlight {
-    border-color: var(--accent);
-    background: linear-gradient(90deg, rgba(244, 201, 78, 0.14) 0%, rgba(13, 27, 42, 0.95) 100%);
-    box-shadow: 0 4px 14px rgba(244, 201, 78, 0.1);
-  }
-
   .badge-ongoing {
     background: var(--ongoing);
-    color: #000;
-    font-size: 12px;
-    font-weight: 900;
-    padding: 4px 8px;
-    border-radius: 6px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .badge-ready {
-    background: var(--accent);
     color: #000;
     font-size: 12px;
     font-weight: 900;
@@ -259,7 +238,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (ON GOING由S3:S5勾选框控制，下方为BE READY) -->
+      <!-- 左栏：QUEUE (联动 J3:S10，S列勾选入 ON GOING，其余入准备上场) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -270,7 +249,7 @@
         </div>
       </div>
 
-      <!-- 中间主看板：展示最后一个完赛运动员的成绩 -->
+      <!-- 中间主看板 (联动 B2:E10 范围) -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
@@ -308,7 +287,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS 已完成排行 (严格读取 J17:R30 区域) -->
+      <!-- 右栏：RESULTS 已完成排行 (联动 J15:R30 范围) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -386,31 +365,24 @@ document.addEventListener('mousemove', () => {
   }
 });
 
-function processQueueAndRender(rows, currentProjCht) {
+function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 处理左侧 QUEUE (S3:S5 及以下勾选框联动)
-  for (let r = 2; r < rows.length; r++) {
-    const athleteId = safeCell(rows, r, 9);    // J列: 号码
-    const orderNum  = safeCell(rows, r, 10);   // K列: 出场次序
-    const projCht   = safeCell(rows, r, 11);   // L列: 比赛项目
+  // 1. 左侧 QUEUE 联动 J3:S10 范围 (index 2 到 9)
+  for (let r = 2; r <= 9; r++) {
+    if (!rows[r]) continue;
+    const athleteId = safeCell(rows, r, 9);    // J列
+    const orderNum  = safeCell(rows, r, 10);   // K列
     const nameEng   = safeCell(rows, r, 12);   // M列: 英文姓名
     const nameCht   = safeCell(rows, r, 13);   // N列: 中文姓名
-    const clubName  = safeCell(rows, r, 14);   // O列: 代表学校
     const tickVal   = safeCell(rows, r, 18);   // S列: Tick Box (TRUE/FALSE)
 
     if (!nameEng && !nameCht) continue;
-    if (String(projCht || '').includes('比赛项目') || String(athleteId || '').includes('号码')) continue;
-
-    if (currentProjCht && currentProjCht !== '—' && projCht && String(projCht).trim() !== String(currentProjCht).trim()) {
-      continue;
-    }
 
     const athleteObj = {
       nameEng: nameEng || '—',
       nameCht: nameCht || '—',
-      club: clubName || '—',
       orderNum
     };
 
@@ -423,7 +395,7 @@ function processQueueAndRender(rows, currentProjCht) {
     }
   }
 
-  // 渲染左侧 QUEUE
+  // 渲染左侧 QUEUE (无高亮样式)
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
@@ -431,7 +403,7 @@ function processQueueAndRender(rows, currentProjCht) {
     leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
     ongoingList.forEach((item) => {
       leftHtml += `
-        <div class="athlete-item ongoing-highlight">
+        <div class="athlete-item">
           <span class="badge-ongoing">ON GOING</span>
           <div class="athlete-names">
             <div class="n-eng">${escapeHtml(item.nameEng)}</div>
@@ -443,12 +415,12 @@ function processQueueAndRender(rows, currentProjCht) {
   }
 
   if (waitingList.length > 0) {
-    leftHtml += `<div class="group-label group-beready"><span>⏳ BE READY</span><span>准备上场</span></div>`;
+    leftHtml += `<div class="group-label group-beready"><span>⏳ QUEUE</span><span>准备上场</span></div>`;
     waitingList.forEach((item, idx) => {
       leftHtml += `
-        <div class="athlete-item ${idx === 0 ? 'be-ready-highlight' : ''}">
-          <span class="${idx === 0 ? 'badge-ready' : 'badge-queue'}">
-            ${idx === 0 ? 'BE READY' : '#' + (item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1))}
+        <div class="athlete-item">
+          <span class="badge-queue">
+            #${item.orderNum !== null ? escapeHtml(item.orderNum) : (idx + 1)}
           </span>
           <div class="athlete-names">
             <div class="n-eng">${escapeHtml(item.nameEng)}</div>
@@ -461,14 +433,13 @@ function processQueueAndRender(rows, currentProjCht) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 2. 处理右侧 RESULTS (严格读取 J17:R30 区域，即 index 16 到 29)
+  // 2. 右侧 RESULTS 严格联动 J15:R30 范围 (index 14 到 29)
   const completedArr = [];
-  for (let r = 16; r <= 29; r++) {
+  for (let r = 14; r <= 29; r++) {
     if (!rows[r]) continue;
-    // J17 对应 index 9, M列=12(英文姓名), N列=13(中文姓名), Q列=16(最终得分)
-    const nameEng  = safeCell(rows, r, 12);
-    const nameCht  = safeCell(rows, r, 13);
-    const rawScore = safeCell(rows, r, 16);
+    const nameEng  = safeCell(rows, r, 12); // M列
+    const nameCht  = safeCell(rows, r, 13); // N列
+    const rawScore = safeCell(rows, r, 16); // Q列
 
     if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
 
@@ -513,53 +484,21 @@ window.handleGvizResponse = function(data) {
   }
 
   const rows = data.table.rows;
-  const baseCol = FIX_BASE_COL;
+  const baseCol = FIX_BASE_COL; // B列
 
-  let offset = 0;
-  if (!safeCell(rows, 0, baseCol) && safeCell(rows, 1, baseCol)) {
-    offset = 1;
-  }
-
-  const projectEng = safeCell(rows, 0 + offset, baseCol) || '—';
-  const projectCht = safeCell(rows, 1 + offset, baseCol) || '—';
-
-  // 中间主看板：展示最后一个完赛运动员的成绩 (读取 B3:B9 区域)
-  const nameEng    = safeCell(rows, 2 + offset, baseCol) || '—';
-  const nameCht    = safeCell(rows, 3 + offset, baseCol) || '—';
-  const club       = safeCell(rows, 4 + offset, baseCol) || '—';
-  const valA       = formatScore(safeCell(rows, 6 + offset, baseCol));
-  const valB       = formatScore(safeCell(rows, 6 + offset, baseCol+1));
-  const valD       = formatScore(safeCell(rows, 6 + offset, baseCol+2));
-  const valF       = formatScore(safeCell(rows, 6 + offset, baseCol+3));
-  const finalScore = formatScore(safeCell(rows, 8 + offset, baseCol));
+  // 中间主看板严格联动 B2:E10 范围 (对应 rows index 1 到 9 区域)
+  const projectEng = safeCell(rows, 0, baseCol) || '—'; // B2
+  const projectCht = safeCell(rows, 1, baseCol) || '—'; // B3
+  const nameEng    = safeCell(rows, 2, baseCol) || '—'; // B4
+  const nameCht    = safeCell(rows, 3, baseCol) || '—'; // B5
+  const club       = safeCell(rows, 4, baseCol) || '—'; // B6
+  const valA       = formatScore(safeCell(rows, 6, baseCol));     // B8
+  const valB       = formatScore(safeCell(rows, 6, baseCol+1));   // C8
+  const valD       = formatScore(safeCell(rows, 6, baseCol+2));   // D8
+  const valF       = formatScore(safeCell(rows, 6, baseCol+3));   // E8
+  const finalScore = formatScore(safeCell(rows, 8, baseCol));     // B10
 
   document.getElementById('projectEng').innerText = projectEng;
   document.getElementById('projectCht').innerText = projectCht;
   document.getElementById('nameEng').innerText    = nameEng;
-  document.getElementById('nameCht').innerText    = nameCht;
-  document.getElementById('club').innerText       = club;
-  document.getElementById('valA').innerText       = valA;
-  document.getElementById('valB').innerText       = valB;
-  document.getElementById('valD').innerText       = valD;
-  document.getElementById('valF').innerText       = valF;
-  document.getElementById('finalScore').innerText = finalScore;
-
-  processQueueAndRender(rows, projectCht);
-  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
-};
-
-function fetchAndRender() {
-  const oldScript = document.getElementById('gvizScript');
-  if (oldScript) oldScript.remove();
-
-  const script = document.createElement('script');
-  script.id = 'gvizScript';
-  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
-  document.body.appendChild(script);
-}
-
-fetchAndRender();
-setInterval(fetchAndRender, INTERVAL_MS);
-</script>
-</body>
-</html>
+  document.getElementById('nameCht').innerText    = nameCht

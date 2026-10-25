@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 表格全自动联动版</title>
+<title>实时成绩看板 - 状态修正版</title>
 <style>
   :root{
     --bg:#071226;
@@ -33,12 +33,11 @@
     align-items: center;
   }
 
-  /* ================= 中间主看板 ================= */
+  /* 中间主看板 */
   .wrap{width:100%; box-sizing:border-box; padding:10px 16px; margin:0;}
   .project-eng{font-size:38px;font-weight:800;text-align:center;margin:6px 0;line-height:1.2}
   .project-chn{font-size:38px;text-align:center;margin:6px 0 14px 0;color:var(--muted)}
 
-  /* 1. 单人视图 */
   #singleView { display: block; }
   .name-eng{font-size:42px;font-weight:800;text-align:center;margin:6px 0}
   .name-chn{font-size:40px;text-align:center;margin:6px 0;color:var(--muted)}
@@ -53,7 +52,6 @@
   .final-label{display:inline-block;background:var(--accent);color:#000;padding:10px 18px;border-radius:8px;font-weight:800;font-size:35px}
   .final-score{font-size:240px;font-weight:900;color:var(--accent);margin:-45px 0 10px 0;text-align:center;line-height:1.05}
 
-  /* 2. 多人同场视图（双人 / 三人并排自适应） */
   #multiView {
     display: none;
     grid-template-columns: repeat(2, 1fr);
@@ -125,7 +123,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* ================= 左右侧边栏 ================= */
+  /* 左右侧边栏 */
   .side-panel {
     background: rgba(13, 27, 42, 0.55);
     border: 1px solid var(--card-border);
@@ -168,7 +166,6 @@
   .side-list::-webkit-scrollbar { width: 4px; }
   .side-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
-  /* 左侧分组标签 */
   .group-label {
     font-size: 15px;
     font-weight: 900;
@@ -301,7 +298,6 @@
     font-size: 18px;
   }
 
-  /* 右下角全屏按钮 */
   #fullscreenBtn {
     position: fixed;
     bottom: 20px;
@@ -335,7 +331,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：ON GOING & BE READY -->
+      <!-- 左栏：队列 -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -346,12 +342,11 @@
         </div>
       </div>
 
-      <!-- 中间栏：主看板（单人/双人/三人全自动切换） -->
+      <!-- 中间主看板 -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
 
-        <!-- 1. 单人视图 -->
         <div id="singleView">
           <div class="name-eng" id="nameEng">—</div>
           <div class="name-chn" id="nameCht">—</div>
@@ -382,7 +377,6 @@
           <div class="final-score" id="finalScore">—</div>
         </div>
 
-        <!-- 2. 多人同场视图容器 -->
         <div id="multiView"></div>
 
         <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">
@@ -397,7 +391,7 @@
           <span class="side-title-sub">已完成成绩排行</span>
         </div>
         <div class="side-list" id="completedList">
-          <div class="empty-tip">正在同步数据...</div>
+          <div class="empty-tip">暂无完赛成绩</div>
         </div>
       </div>
 
@@ -412,7 +406,7 @@
 const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
 const SHEET_NAME = "score";
 const INTERVAL_MS = 3000;
-const FIX_BASE_COL = 1; // B列
+const FIX_BASE_COL = 1;
 
 let rememberedProject = "";
 const completedMemory = new Map();
@@ -471,8 +465,7 @@ document.addEventListener('mousemove', () => {
   }
 });
 
-/* 处理队列、左右栏与多人同场渲染 */
-function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthleteIdRaw, targetCount) {
+function processQueueAndRender(rows, offset, currentProjCht, ongoingNames, currentAthleteIdRaw, targetCount) {
   if (currentProjCht && currentProjCht !== '—' && currentProjCht !== rememberedProject) {
     rememberedProject = currentProjCht;
     completedMemory.clear();
@@ -498,8 +491,8 @@ function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthl
     }
 
     const numScore = Number(rawScore);
-    const hasScore = !isNaN(numScore) && numScore > 0;
-    const isConfirmed = (confirmed === true || String(confirmed).toUpperCase() === 'TRUE');
+    const hasScore = !isNaN(numScore); // 只要有数字（包括负数或0）就算出分
+    const isConfirmed = (confirmed === true || String(confirmed).toUpperCase() === 'TRUE' || String(confirmed).toLowerCase() === 'yes' || hasScore);
 
     queueList.push({
       athleteId,
@@ -514,100 +507,52 @@ function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthl
     });
   }
 
-  const idParts = String(currentAthleteIdRaw || '').split(/[\/,&+，、\s]+/).map(s => s.trim()).filter(Boolean);
-  const p1Id = idParts[0] || null;
-
-  let p1Index = queueList.findIndex(item =>
-    (p1Id !== null && item.athleteId !== null && String(item.athleteId).trim() === p1Id) ||
-    (p1Data.nameEng && p1Data.nameEng !== '—' && item.nameEng.trim() === p1Data.nameEng.trim())
-  );
-
-  const ongoingAthletes = [];
   const waitingAthletes = [];
 
-  if (p1Index !== -1) {
-    ongoingAthletes.push(queueList[p1Index]);
-  } else if (p1Data.nameEng !== '—' || p1Data.nameCht !== '—') {
-    ongoingAthletes.push({
-      orderNum: 1,
-      nameEng: p1Data.nameEng,
-      nameCht: p1Data.nameCht,
-      club: p1Data.club,
-      scoreText: p1Data.finalScore
-    });
-  }
+  // 遍历队列：如果在中间正在比赛的选手直接跳过（不留在左侧队列）；如果已出分/确认则自动加入右侧已完成排行；其余留在左侧等待
+  queueList.forEach((item) => {
+    const isOngoing = ongoingNames.some(ogName => ogName && item.nameEng.trim().toLowerCase() === ogName.trim().toLowerCase());
 
-  const multiAthletesData = [ {
-    nameEng: p1Data.nameEng,
-    nameCht: p1Data.nameCht,
-    club: p1Data.club,
-    valA: p1Data.valA, valB: p1Data.valB, valD: p1Data.valD, valF: p1Data.valF,
-    finalScore: p1Data.finalScore
-  } ];
-
-  // 自动搜寻第 2、第 3 位同场选手
-  for (let i = 1; i < targetCount; i++) {
-    const explicitId = idParts[i] || null;
-    let nextIdx = -1;
-
-    if (explicitId) {
-      nextIdx = queueList.findIndex(item => item.athleteId !== null && String(item.athleteId).trim() === explicitId);
-    } else if (p1Index !== -1 && p1Index + i < queueList.length) {
-      nextIdx = p1Index + i;
+    if (isOngoing) {
+      // 正在比赛的选手不放入左侧等待队列，也不放入右侧已完成
+      return;
     }
 
-    if (nextIdx !== -1 && queueList[nextIdx]) {
-      const qNext = queueList[nextIdx];
-      ongoingAthletes.push(qNext);
-      multiAthletesData.push({
-        nameEng: qNext.nameEng,
-        nameCht: qNext.nameCht,
-        club: qNext.club,
-        valA: '—', valB: '—', valD: '—', valF: '—',
-        finalScore: qNext.scoreText
-      });
-    } else {
-      multiAthletesData.push({
-        nameEng: '等待数据...', nameCht: '—', club: '—',
-        valA: '—', valB: '—', valD: '—', valF: '—', finalScore: '—'
-      });
-    }
-  }
-
-  // 分类已完成和等待区
-  queueList.forEach((item, idx) => {
-    const isOngoing = ongoingAthletes.some(og => og.nameEng.trim() === item.nameEng.trim());
-    if (item.isConfirmed || (item.hasScore && !isOngoing)) {
+    // 只要有最终得分或者被确认，就放入右侧完赛排行榜
+    if (item.hasScore || item.isConfirmed) {
       completedMemory.set(item.nameEng + '|' + item.nameCht, {
         nameEng: item.nameEng,
         nameCht: item.nameCht,
         score: item.score,
         scoreText: item.scoreText
       });
-    } else if (!isOngoing) {
+    } else {
       waitingAthletes.push(item);
     }
   });
 
-  // 渲染左侧栏
+  // 渲染左侧栏 (QUEUE)
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
-  if (ongoingAthletes.length > 0) {
+  // 1. 顶部固定显示正在比赛的选手
+  if (ongoingNames.length > 0 && ongoingNames[0] !== '—') {
     leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
-    ongoingAthletes.forEach((item) => {
-      leftHtml += `
-        <div class="athlete-item ongoing-highlight">
-          <span class="badge-ongoing">ON GOING</span>
-          <div class="athlete-names">
-            <div class="n-eng">${escapeHtml(item.nameEng)}</div>
-            <div class="n-chn">${escapeHtml(item.nameCht)}</div>
+    ongoingNames.forEach((ogName) => {
+      if (ogName && ogName !== '—') {
+        leftHtml += `
+          <div class="athlete-item ongoing-highlight">
+            <span class="badge-ongoing">ON GOING</span>
+            <div class="athlete-names">
+              <div class="n-eng">${escapeHtml(ogName)}</div>
+            </div>
           </div>
-        </div>
-      `;
+        `;
+      }
     });
   }
 
+  // 2. 下方显示等待出场选手 (BE READY)
   if (waitingAthletes.length > 0) {
     leftHtml += `<div class="group-label group-beready"><span>⏳ BE READY</span><span>准备上场</span></div>`;
     waitingAthletes.forEach((item, idx) => {
@@ -627,7 +572,7 @@ function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthl
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // 渲染右侧完赛排行
+  // 渲染右侧栏 (RESULTS)
   const completedArr = Array.from(completedMemory.values());
   completedArr.sort((a, b) => b.score - a.score);
 
@@ -649,40 +594,6 @@ function processQueueAndRender(rows, offset, currentProjCht, p1Data, currentAthl
         </div>
       `;
     }).join('');
-  }
-
-  // 渲染中间看板视图（单人 vs 多人）
-  const singleView = document.getElementById('singleView');
-  const multiView = document.getElementById('multiView');
-
-  if (targetCount <= 1) {
-    singleView.style.display = 'block';
-    multiView.style.display = 'none';
-  } else {
-    singleView.style.display = 'none';
-    multiView.style.display = 'grid';
-    multiView.className = targetCount === 3 ? 'layout-3' : '';
-
-    multiView.innerHTML = multiAthletesData.map((athlete, idx) => `
-      <div class="multi-card">
-        <div>
-          <div class="multi-tag">ON GOING · 选手 ${idx + 1}</div>
-          <div class="multi-name-eng">${escapeHtml(athlete.nameEng)}</div>
-          <div class="multi-name-chn">${escapeHtml(athlete.nameCht)}</div>
-          <div class="multi-club">${escapeHtml(athlete.club)}</div>
-          <div class="multi-subscores">
-            <div class="multi-subcard"><div class="label">A组</div><div class="value">${idx === 0 ? p1Data.valA : '—'}</div></div>
-            <div class="multi-subcard"><div class="label">B组</div><div class="value">${idx === 0 ? p1Data.valB : '—'}</div></div>
-            <div class="multi-subcard"><div class="label">纪律</div><div class="value">${idx === 0 ? p1Data.valD : '—'}</div></div>
-            <div class="multi-subcard"><div class="label">裁判长</div><div class="value">${idx === 0 ? p1Data.valF : '—'}</div></div>
-          </div>
-        </div>
-        <div>
-          <div class="multi-final-label">Final Score 最终得分</div>
-          <div class="multi-final-score">${escapeHtml(athlete.finalScore)}</div>
-        </div>
-      </div>
-    `).join('');
   }
 }
 
@@ -723,9 +634,6 @@ window.handleGvizResponse = function(data) {
     }
   }
 
-  // ✨ 全自动从 Google Sheet 表格读取模式：
-  // 1. 读取 H2 单元格（行 offset+1, 列 7 即 H列）作为显示人数控制（填 2 或 3）
-  // 2. 如果 F3 选手编号里带斜杠（如 7/8），也会自动识别
   const sheetModeVal = Number(safeCell(rows, 1 + offset, 7)) || 1;
   const hasSlash = /[\/,&+，、]/.test(String(currentAthleteId || ''));
   
@@ -736,34 +644,34 @@ window.handleGvizResponse = function(data) {
     targetCount = String(currentAthleteId).split(/[\/,&+，、\s]+/).length;
   }
 
-  // 渲染单人主看板默认文本
+  // 渲染单人/多人主看板
   document.getElementById('projectEng').innerText = projectEng;
   document.getElementById('projectCht').innerText = projectCht;
-  document.getElementById('nameEng').innerText    = p1Data.nameEng;
-  document.getElementById('nameCht').innerText    = p1Data.nameCht;
-  document.getElementById('club').innerText       = p1Data.club;
-  document.getElementById('valA').innerText       = p1Data.valA;
-  document.getElementById('valB').innerText       = p1Data.valB;
-  document.getElementById('valD').innerText       = p1Data.valD;
-  document.getElementById('valF').innerText       = p1Data.valF;
-  document.getElementById('finalScore').innerText = p1Data.finalScore;
 
-  processQueueAndRender(rows, offset, projectCht, p1Data, currentAthleteId, targetCount);
-  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString() + (targetCount > 1 ? ` [${targetCount}人同场模式]` : '');
-};
+  const singleView = document.getElementById('singleView');
+  const multiView = document.getElementById('multiView');
 
-function fetchAndRender() {
-  const oldScript = document.getElementById('gvizScript');
-  if (oldScript) oldScript.remove();
+  const ongoingNames = [p1Data.nameEng];
 
-  const script = document.createElement('script');
-  script.id = 'gvizScript';
-  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
-  document.body.appendChild(script);
-}
+  if (targetCount <= 1) {
+    singleView.style.display = 'block';
+    multiView.style.display = 'none';
 
-fetchAndRender();
-setInterval(fetchAndRender, INTERVAL_MS);
-</script>
-</body>
-</html>
+    document.getElementById('nameEng').innerText    = p1Data.nameEng;
+    document.getElementById('nameCht').innerText    = p1Data.nameCht;
+    document.getElementById('club').innerText       = p1Data.club;
+    document.getElementById('valA').innerText       = p1Data.valA;
+    document.getElementById('valB').innerText       = p1Data.valB;
+    document.getElementById('valD').innerText       = p1Data.valD;
+    document.getElementById('valF').innerText       = p1Data.valF;
+    document.getElementById('finalScore').innerText = p1Data.finalScore;
+  } else {
+    singleView.style.display = 'none';
+    multiView.style.display = 'grid';
+    multiView.className = targetCount === 3 ? 'layout-3' : '';
+
+    // 多人模式下组装数据
+    const idParts = String(currentAthleteId || '').split(/[\/,&+，、\s]+/).map(s => s.trim()).filter(Boolean);
+    const multiCards = [ { ...p1Data, tagNum: 1 } ];
+
+    for (let i = 1; i

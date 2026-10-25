@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 勾选框联动版</title>
+<title>实时成绩看板 - 完赛看板与J17排行版</title>
 <style>
   :root{
     --bg:#071226;
@@ -33,7 +33,7 @@
     align-items: center;
   }
 
-  /* 中间主看板（单人标准视图） */
+  /* 中间主看板（展示最后一个完赛运动员成绩） */
   .wrap{width:100%; box-sizing:border-box; padding:10px 16px; margin:0;}
   .project-eng{font-size:38px;font-weight:800;text-align:center;margin:6px 0;line-height:1.2}
   .project-chn{font-size:38px;text-align:center;margin:6px 0 14px 0;color:var(--muted)}
@@ -259,7 +259,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (ON GOING & BE READY) -->
+      <!-- 左栏：QUEUE (ON GOING由S3:S5勾选框控制，下方为BE READY) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -270,7 +270,7 @@
         </div>
       </div>
 
-      <!-- 中间主看板 -->
+      <!-- 中间主看板：展示最后一个完赛运动员的成绩 -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
@@ -308,7 +308,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS 已完成排行 -->
+      <!-- 右栏：RESULTS 已完成排行 (严格读取 J17:R30 区域) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -331,9 +331,6 @@ const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
 const SHEET_NAME = "score";
 const INTERVAL_MS = 3000;
 const FIX_BASE_COL = 1; // B列
-
-let rememberedProject = "";
-const completedMemory = new Map();
 
 function safeCell(rows, r, c){
   if (!rows || r < 0 || !rows[r] || !rows[r].c) return null;
@@ -389,16 +386,11 @@ document.addEventListener('mousemove', () => {
   }
 });
 
-function processQueueAndRender(rows, offset, currentProjCht) {
-  if (currentProjCht && currentProjCht !== '—' && currentProjCht !== rememberedProject) {
-    rememberedProject = currentProjCht;
-    completedMemory.clear();
-  }
-
+function processQueueAndRender(rows, currentProjCht) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 从 row index 2 开始遍历队列区（对应表格第 3 行起，即 S3, S4, S5...）
+  // 1. 处理左侧 QUEUE (S3:S5 及以下勾选框联动)
   for (let r = 2; r < rows.length; r++) {
     const athleteId = safeCell(rows, r, 9);    // J列: 号码
     const orderNum  = safeCell(rows, r, 10);   // K列: 出场次序
@@ -406,58 +398,35 @@ function processQueueAndRender(rows, offset, currentProjCht) {
     const nameEng   = safeCell(rows, r, 12);   // M列: 英文姓名
     const nameCht   = safeCell(rows, r, 13);   // N列: 中文姓名
     const clubName  = safeCell(rows, r, 14);   // O列: 代表学校
-    const rawScore  = safeCell(rows, r, 16);   // Q列: 最终得分
-    const confirmed = safeCell(rows, r, 17);   // R列: 裁判确认
     const tickVal   = safeCell(rows, r, 18);   // S列: Tick Box (TRUE/FALSE)
 
     if (!nameEng && !nameCht) continue;
     if (String(projCht || '').includes('比赛项目') || String(athleteId || '').includes('号码')) continue;
 
-    // 过滤非当前项目的选手
     if (currentProjCht && currentProjCht !== '—' && projCht && String(projCht).trim() !== String(currentProjCht).trim()) {
       continue;
     }
-
-    const numScore = Number(rawScore);
-    const hasScore = (rawScore !== null && rawScore !== undefined && rawScore !== '' && !isNaN(numScore));
-    const isConfirmed = (confirmed === true || String(confirmed).toUpperCase() === 'TRUE' || String(confirmed).toLowerCase() === 'yes' || hasScore);
 
     const athleteObj = {
       nameEng: nameEng || '—',
       nameCht: nameCht || '—',
       club: clubName || '—',
-      orderNum,
-      score: isNaN(numScore) ? 0 : numScore,
-      scoreText: formatScore(rawScore),
-      hasScore,
-      isConfirmed
+      orderNum
     };
 
-    // 判断 S 列 Tick Box 是否勾选 (TRUE / true / 1 / "TRUE")
     const isChecked = (tickVal === true || String(tickVal).toUpperCase() === 'TRUE' || String(tickVal) === '1');
 
     if (isChecked) {
-      // 勾选了的显示在 ON GOING 区域
       ongoingList.push(athleteObj);
-    } else if (hasScore || isConfirmed) {
-      // 已经完赛的出分选手推送到右侧 RESULTS 排行榜
-      completedMemory.set(nameEng + '|' + nameCht, {
-        nameEng: athleteObj.nameEng,
-        nameCht: athleteObj.nameCht,
-        score: athleteObj.score,
-        scoreText: athleteObj.scoreText
-      });
     } else {
-      // 未勾选且未完赛的留在等待区 (BE READY)
       waitingList.push(athleteObj);
     }
   }
 
-  // ================= 渲染左侧栏 QUEUE =================
+  // 渲染左侧 QUEUE
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
-  // 1. ON GOING 区域（根据 S3:S5 的 Tick Box 动态显示）
   if (ongoingList.length > 0) {
     leftHtml += `<div class="group-label group-ongoing"><span>● ON GOING</span><span>正在比赛</span></div>`;
     ongoingList.forEach((item) => {
@@ -473,7 +442,6 @@ function processQueueAndRender(rows, offset, currentProjCht) {
     });
   }
 
-  // 2. BE READY 准备上场区域
   if (waitingList.length > 0) {
     leftHtml += `<div class="group-label group-beready"><span>⏳ BE READY</span><span>准备上场</span></div>`;
     waitingList.forEach((item, idx) => {
@@ -493,8 +461,27 @@ function processQueueAndRender(rows, offset, currentProjCht) {
 
   waitingEl.innerHTML = leftHtml || '<div class="empty-tip">暂无候场选手</div>';
 
-  // ================= 渲染右侧栏 RESULTS (已完成排行) =================
-  const completedArr = Array.from(completedMemory.values());
+  // 2. 处理右侧 RESULTS (严格读取 J17:R30 区域，即 index 16 到 29)
+  const completedArr = [];
+  for (let r = 16; r <= 29; r++) {
+    if (!rows[r]) continue;
+    // J17 对应 index 9, M列=12(英文姓名), N列=13(中文姓名), Q列=16(最终得分)
+    const nameEng  = safeCell(rows, r, 12);
+    const nameCht  = safeCell(rows, r, 13);
+    const rawScore = safeCell(rows, r, 16);
+
+    if (!nameEng && !nameCht && (rawScore === null || rawScore === '')) continue;
+
+    const numScore = Number(rawScore);
+    completedArr.push({
+      nameEng: nameEng || '—',
+      nameCht: nameCht || '—',
+      score: isNaN(numScore) ? 0 : numScore,
+      scoreText: formatScore(rawScore)
+    });
+  }
+
+  // 按最终得分从高到低排序
   completedArr.sort((a, b) => b.score - a.score);
 
   const completedEl = document.getElementById('completedList');
@@ -536,7 +523,7 @@ window.handleGvizResponse = function(data) {
   const projectEng = safeCell(rows, 0 + offset, baseCol) || '—';
   const projectCht = safeCell(rows, 1 + offset, baseCol) || '—';
 
-  // 中间主看板展示当前/最后一个完赛或评估的运动员成绩信息
+  // 中间主看板：展示最后一个完赛运动员的成绩 (读取 B3:B9 区域)
   const nameEng    = safeCell(rows, 2 + offset, baseCol) || '—';
   const nameCht    = safeCell(rows, 3 + offset, baseCol) || '—';
   const club       = safeCell(rows, 4 + offset, baseCol) || '—';
@@ -557,7 +544,7 @@ window.handleGvizResponse = function(data) {
   document.getElementById('valF').innerText       = valF;
   document.getElementById('finalScore').innerText = finalScore;
 
-  processQueueAndRender(rows, offset, projectCht);
+  processQueueAndRender(rows, projectCht);
   document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
 };
 

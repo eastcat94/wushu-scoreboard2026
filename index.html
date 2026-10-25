@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 精准坐标版</title>
+<title>实时成绩看板 - 修复连结版</title>
 <style>
   :root{
     --bg:#071226;
@@ -118,7 +118,7 @@
     margin-top: 10px;
   }
 
-  /* 取消高亮后的普通卡片样式 */
+  /* 普通卡片样式（无高亮） */
   .athlete-item {
     background: var(--card);
     border: 1px solid var(--card-border);
@@ -238,7 +238,7 @@
   <div id="scaleWrap">
     <div class="board-layout">
 
-      <!-- 左栏：QUEUE (联动 J3:S10，S列勾选入 ON GOING，其余入准备上场) -->
+      <!-- 左栏：QUEUE (联动 J3:S10) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">QUEUE</span>
@@ -249,7 +249,7 @@
         </div>
       </div>
 
-      <!-- 中间主看板 (联动 B2:E10 范围) -->
+      <!-- 中间主看板 (联动 B2:E10) -->
       <div class="wrap">
         <div class="project-eng" id="projectEng">—</div>
         <div class="project-chn" id="projectCht">—</div>
@@ -287,7 +287,7 @@
         </div>
       </div>
 
-      <!-- 右栏：RESULTS 已完成排行 (联动 J15:R30 范围) -->
+      <!-- 右栏：RESULTS (联动 J15:R30) -->
       <div class="side-panel">
         <div class="side-header">
           <span class="side-title-main">RESULTS</span>
@@ -307,7 +307,7 @@
 
 <script>
 const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
-const SHEET_NAME = "score";
+const SHEET_GID = "387691548"; // 恢复正确的 GID
 const INTERVAL_MS = 3000;
 const FIX_BASE_COL = 1; // B列
 
@@ -395,7 +395,7 @@ function processQueueAndRender(rows) {
     }
   }
 
-  // 渲染左侧 QUEUE (无高亮样式)
+  // 渲染左侧 QUEUE
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 
@@ -519,7 +519,7 @@ function fetchAndRender() {
 
   const script = document.createElement('script');
   script.id = 'gvizScript';
-  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
+  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&gid=${SHEET_GID}&_=${Date.now()}`;
   document.body.appendChild(script);
 }
 

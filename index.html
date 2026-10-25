@@ -501,4 +501,30 @@ window.handleGvizResponse = function(data) {
   document.getElementById('projectEng').innerText = projectEng;
   document.getElementById('projectCht').innerText = projectCht;
   document.getElementById('nameEng').innerText    = nameEng;
-  document.getElementById('nameCht').innerText    = nameCht
+  document.getElementById('nameCht').innerText    = nameCht;
+  document.getElementById('club').innerText       = club;
+  document.getElementById('valA').innerText       = valA;
+  document.getElementById('valB').innerText       = valB;
+  document.getElementById('valD').innerText       = valD;
+  document.getElementById('valF').innerText       = valF;
+  document.getElementById('finalScore').innerText = finalScore;
+
+  processQueueAndRender(rows);
+  document.getElementById('updatedAt').innerText = '已同步 ' + new Date().toLocaleTimeString();
+};
+
+function fetchAndRender() {
+  const oldScript = document.getElementById('gvizScript');
+  if (oldScript) oldScript.remove();
+
+  const script = document.createElement('script');
+  script.id = 'gvizScript';
+  script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&headers=0&sheet=${encodeURIComponent(SHEET_NAME)}&_=${Date.now()}`;
+  document.body.appendChild(script);
+}
+
+fetchAndRender();
+setInterval(fetchAndRender, INTERVAL_MS);
+</script>
+</body>
+</html>

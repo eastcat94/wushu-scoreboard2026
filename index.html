@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>实时成绩看板 - 修复连结版</title>
+<title>实时成绩看板 - 精准坐标版</title>
 <style>
   :root{
     --bg:#071226;
@@ -307,7 +307,7 @@
 
 <script>
 const SPREADSHEET_ID = "1gNxbOq4x3ltS62SC3wgOu3RfQLvPlsmacyR-Sb7Yvxc";
-const SHEET_GID = "387691548"; // 恢复正确的 GID
+const SHEET_GID = "387691548";
 const INTERVAL_MS = 3000;
 const FIX_BASE_COL = 1; // B列
 
@@ -369,7 +369,7 @@ function processQueueAndRender(rows) {
   const ongoingList = [];
   const waitingList = [];
 
-  // 1. 左侧 QUEUE 联动 J3:S10 范围 (index 2 到 9)
+  // 1. 左侧 QUEUE 严格联动 J3:S10 范围 (index 2 到 9)
   for (let r = 2; r <= 9; r++) {
     if (!rows[r]) continue;
     const athleteId = safeCell(rows, r, 9);    // J列
@@ -395,7 +395,7 @@ function processQueueAndRender(rows) {
     }
   }
 
-  // 渲染左侧 QUEUE
+  // 渲染左侧 QUEUE (无高亮)
   const waitingEl = document.getElementById('waitingList');
   let leftHtml = '';
 

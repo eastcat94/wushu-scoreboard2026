@@ -358,7 +358,7 @@
     background: rgba(244,201,78,0.06);
   }
 
-  /* 个人荣誉榜专属卡片列表（上下两排中英文分组显示，不超出格子） */
+  /* 个人荣誉榜专属卡片列表（紧凑间距、拉近名字与分数的距离） */
   .honors-grid {
     display: flex;
     flex-direction: column;
@@ -367,15 +367,16 @@
     justify-content: space-between;
   }
   .honor-row-card {
-    background: linear-gradient(90deg, rgba(244,201,78,0.12) 0%, rgba(13,27,42,0.9) 45%);
+    background: linear-gradient(90deg, rgba(244,201,78,0.12) 0%, rgba(13,27,42,0.92) 48%);
     border: 1px solid rgba(244,201,78,0.28);
     border-left: 4px solid var(--accent);
     border-radius: 8px;
-    padding: 6px 14px;
+    padding: 6px 20px;
     display: grid;
-    grid-template-columns: 225px 1fr 86px 148px;
+    grid-template-columns: 230px 250px 115px auto;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
+    gap: 14px;
     flex: 1;
     min-height: 0;
     box-sizing: border-box;
@@ -387,7 +388,7 @@
     min-width: 0;
   }
   .honor-award-chn {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 900;
     color: var(--accent);
     line-height: 1.25;
@@ -396,7 +397,7 @@
     text-overflow: ellipsis;
   }
   .honor-award-eng {
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #cbd5e1;
     line-height: 1.2;
@@ -410,18 +411,20 @@
     flex-direction: column;
     justify-content: center;
     min-width: 0;
+    border-left: 2px solid rgba(255,255,255,0.08);
+    padding-left: 18px;
   }
   .honor-winner-main {
-    font-size: 16px;
+    font-size: 19px;
     font-weight: 900;
     color: #fff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.25;
+    line-height: 1.2;
   }
   .honor-winner-sub {
-    font-size: 13px;
+    font-size: 14px;
     color: #e2e8f0;
     font-weight: 700;
     margin-top: 2px;
@@ -431,7 +434,7 @@
     line-height: 1.2;
   }
   .honor-winner-school {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--muted);
     font-weight: 600;
     margin-top: 2px;
@@ -442,17 +445,18 @@
   }
   .honor-score-box {
     text-align: center;
-    background: rgba(255,255,255,0.04);
-    border-radius: 6px;
-    padding: 3px 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 7px;
+    padding: 4px 10px;
   }
   .honor-score-box .lbl {
-    font-size: 11px;
+    font-size: 11.5px;
     color: var(--muted);
-    line-height: 1.1;
+    line-height: 1.15;
   }
   .honor-score-box .val {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 900;
     color: var(--ongoing);
     font-variant-numeric: tabular-nums;
@@ -462,16 +466,16 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 6px;
-    font-size: 14px;
+    gap: 8px;
+    font-size: 15px;
     font-weight: 900;
     font-variant-numeric: tabular-nums;
   }
   .honor-medals-pill span {
     background: rgba(255,255,255,0.06);
-    padding: 3px 7px;
-    border-radius: 5px;
-    font-size: 14px !important;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 15px !important;
   }
 
   /* ================= 底部悬浮控制按钮组 (与 Full Screen 样式一致) ================= */
@@ -1071,12 +1075,11 @@ function parseAndRenderHonors(rows) {
 
   const honors = [];
   // startRow 是 B47 标题行，startRow + 1 是 B48 表头行，数据从 startRow + 2 (B49) 开始
-  // 根据 Sheet 结构：B列=荣誉奖项，C列=选手姓名，D:E合并列=代表学校，F列=组别，G列=累计总分，H/I/J列=金/银/铜
   for (let r = startRow + 2; r < Math.min(rows.length, startRow + 10); r++) {
     const award = textCell(safeCell(rows, r, 1));   // B列 (col index 1): 荣誉奖项
-    const colC  = textCell(safeCell(rows, r, 2));   // C列 (col index 2): 选手姓名
-    const colD  = textCell(safeCell(rows, r, 3));   // D列 (col index 3): 代表学校 (D:E合并单元格首列)
-    const colE  = textCell(safeCell(rows, r, 4));   // E列 (col index 4): 备用兼容列
+    const colC  = textCell(safeCell(rows, r, 2));   // C列 (col index 2): 选手姓名(兼容)
+    const colD  = textCell(safeCell(rows, r, 3));   // D列 (col index 3): 选手姓名 / 代表学校
+    const colE  = textCell(safeCell(rows, r, 4));   // E列 (col index 4): 代表学校
     const group = textCell(safeCell(rows, r, 5));   // F列 (col index 5): 组别
     const score = safeCell(rows, r, 6);             // G列 (col index 6): 累计总分
     const gold  = safeCell(rows, r, 7);             // H列 (col index 7): 金牌
@@ -1085,14 +1088,25 @@ function parseAndRenderHonors(rows) {
 
     if (!award) break;
 
-    const athlete = colC || '-';
-    const school = colD || colE || '-';
+    // 智能兼容 B:C 合并或 D:E 合并的两种列布局
+    let athlete = '-';
+    let school = '-';
+    if (colC && colC !== '-') {
+      athlete = colC;
+      school = (colD && colD !== '-') ? colD : ((colE && colE !== '-') ? colE : '-');
+    } else {
+      athlete = colD || '-';
+      school = colE || '-';
+    }
+
+    // 组合“代表学校 · 组别”，自动过滤无效的 "-"
+    const metaParts = [school, group].filter(v => v && v !== '-' && v !== '—');
+    const schoolGroupText = metaParts.length > 0 ? metaParts.join(' · ') : '-';
 
     honors.push({
       awardSplit: splitBilingualText(award),
       athleteSplit: splitBilingualText(athlete),
-      school,
-      group: group || '-',
+      schoolGroupText,
       score: formatScore(score),
       gold: gold !== null ? gold : 0,
       silver: silver !== null ? silver : 0,
@@ -1114,7 +1128,7 @@ function parseAndRenderHonors(rows) {
       <div class="honor-winner-info">
         <div class="honor-winner-main">${escapeHtml(h.athleteSplit.line1)}</div>
         ${h.athleteSplit.line2 ? `<div class="honor-winner-sub">${escapeHtml(h.athleteSplit.line2)}</div>` : ''}
-        <div class="honor-winner-school">${escapeHtml(h.school)} · ${escapeHtml(h.group)}</div>
+        <div class="honor-winner-school">${escapeHtml(h.schoolGroupText)}</div>
       </div>
       <div class="honor-score-box">
         <div class="lbl">累计总分</div>
